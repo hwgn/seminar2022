@@ -24,6 +24,7 @@
 %% The first command in your LaTeX source must be the \documentclass command.
 \documentclass[sigplan,screen]{acmart}
 \usepackage[german]{babel}
+%\usepackage{parskip}
 
 %%
 %% \BibTeX command to typeset BibTeX logo in the docs
@@ -36,17 +37,16 @@
 %% values in them; it is your responsibility as an author to replace
 %% the commands and values with those provided to you when you
 %% complete the rights form.
-\setcopyright{acmcopyright}
-\copyrightyear{2018}
-\acmYear{2018}
-\acmDOI{10.1145/1122445.1122456}
+%\setcopyright{acmcopyright}
+%\copyrightyear{2018}
+%\acmYear{2018}
+%\acmDOI{10.1145/1122445.1122456}
 
 %% These commands are for a PROCEEDINGS abstract or paper.
-\acmConference[Hauptseminar II WiSe 22/23]{Hauptseminar II WiSe 22/23}{June 03--05, 2018}{Woodstock, NY}
-\acmBooktitle{Woodstock '18: ACM Symposium on Neural Gaze Detection,
-  June 03--05, 2018, Woodstock, NY}
-\acmPrice{15.00}
-\acmISBN{978-1-4503-9999-9/18/06}
+%\acmConference[Hauptseminar II WiSe 22/23]{Hauptseminar II WiSe 22/23}{June 03--05, 2018}{Woodstock, NY}
+\acmBooktitle{Hauptseminar II WiSe 22/23, gehalten von Kevin Linne, M.Sc.}
+%\acmPrice{15.00}
+%\acmISBN{978-1-4503-9999-9/18/06}
 
 
 %%
@@ -77,7 +77,7 @@
 %% allowing the author to define a "short title" to be used in page headers.
 
 % Websockets vs. Polling vs. Long Polling
-\title{Möglichkeiten zur nachträglichen Kommunikation zwischen Webbrowser und Server}
+\title{Exposé: Möglichkeiten zur nachträglichen Kommunikation zwischen Webbrowser und Server}
 
 %%
 %% The "author" command and its associated commands are used to define
@@ -121,11 +121,12 @@
 %% article.
 \begin{abstract}
   Die Kommunikation zwischen Webbrowser und Server ist in der Regel
-  einseitig. Der Server sendet Daten an den Browser, der Browser kann
-  aber keine Daten an den Server senden. In diesem Artikel werden
-  verschiedene Möglichkeiten zur nachträglichen Kommunikation zwischen
-  Webbrowser und Server vorgestellt und analysiert. Dabei werden die
-  Vor- und Nachteile der einzelnen Methoden aufgezeigt.
+  einseitig.
+  Der Server sendet Daten an den Browser, der Browser kann aber keine
+  Daten an den Server senden.
+  In diesem Artikel werden verschiedene Möglichkeiten zur nachträglichen
+  Kommunikation zwischen Webbrowser und Server vorgestellt und analysiert. 
+  Dabei werden die Vor- und Nachteile der einzelnen Methoden aufgezeigt.
 \end{abstract}
 
 %%
@@ -170,21 +171,63 @@
 %% A "teaser" image appears between the author and affiliation
 %% information and the body of the document, and typically spans the
 %% page.
-\begin{teaserfigure}
-  \includegraphics[width=\textwidth]{sampleteaser}
-  \caption{Seattle Mariners at Spring Training, 2010.}
-  \Description{Enjoying the baseball game from the third-base
-  seats. Ichiro Suzuki preparing to bat.}
-  \label{fig:teaser}
-\end{teaserfigure}
+%\begin{teaserfigure}
+%  \includegraphics[width=\textwidth]{sampleteaser}
+%  \caption{Seattle Mariners at Spring Training, 2010.}
+%  \Description{Enjoying the baseball game from the third-base
+%  seats. Ichiro Suzuki preparing to bat.}
+%  \label{fig:teaser}
+%\end{teaserfigure}
 
 %%
 %% This command processes the author and affiliation and title
 %% information and builds the first part of the formatted document.
 \maketitle
 
+% Möglichkeiten für Client-Server Kommunikation nach Aufruf einer Website
+% Auseinandersetzung mit...
+% - Was sind und wie funktionieren Websockets (Spezifikation), Polling, Long Polling
+% - Realisierungen (insb. Serverside-Setup von Websockets, ggf. Polling-Algorithmen) 
+% - Vergleich von manuell implementierten Websockets, Polling (Auch mit Blick auf Performance, TCP packets)
+% - Vergleich/Analyse von existierenden Websocket-Frameworks
+
 \section{Motivation}
 
+Moderne Webanwendungen benötigen häufig die Fähigkeit, Daten vom Server an den Client zu senden.
+Soll zum Beispiel eine Chatanwendung realisiert werden, so muss der Server die Nachrichten an alle verbundenen Clients senden können.
+Dies kann ohne weiteres nicht funktionieren, da unter HTTP nur der Client Daten vom Server anfordern kann.
+
+Es gibt mehrere Möglichkeiten, wie eine bidirektionale Kommunikation zwischen Client und Server realisiert werden kann.
+Um die richtige Lösung für ein bestimmtes Problem zu finden, ist es wichtig, die Funktionsweise sowie Vor- und Nachteile der einzelnen Methoden zu kennen.
+Auch sollten existierende Frameworks bekannt sein, um ggf. die Implementierung zu vereinfachen.
+
+
+\section{Aufgabenstellung und Abgrenzung}
+
+\subsection{Aufgabenstellung}
+
+Die Seminararbeit soll sich mit der Frage beschäftigen, wie eine bidirektionale Kommunikation zwischen Client und Server realisiert werden kann.
+Um die Argumentationen zu stützen, soll eine Chatanwendung als Beispiel herangezogen werden, welche bestenfalls die verschiedenen Methoden implementiert.
+Um die Vergleiche zwischen den Methoden (Websockets, Polling, Long Polling) zu ermöglichen, werden diese zunächst genauer in ihrer Funktionsweise beschrieben.
+Danach werden die Vor- und Nachteile der einzelnen Methoden aufgezeigt und argumentiert, welche Methode für die Chatanwendung am besten geeignet ist.
+Zuletzt werden existierende Frameworks (socket.io, faye) vorgestellt, welche die Implementierung der verschiedenen Methoden vereinfachen.
+
+\subsection{Abgrenzung}
+
+Die Seminararbeit soll sich ausschließlich mit der bidirektionalen Kommunikation zwischen Client und Server beschäftigen.
+Es gibt bereits eine große Vielfalt an Frameworks und Realisierungsmöglichkeiten, aus welchen die Seminararbeit eine Auswahl treffen soll.
+Vergleiche zwischen Methoden und zu Frameworks werden auf Performance und Implementierungsaufwand bezogen.
+Die Chatanwendung wird in ihrem Umfang minimal gehalten, notfalls nur als theoretisches Beispiel herangezogen.
+Auch werden Polling-Algorithmen nur begrenzt behandelt, da sie selten in der Praxis verwendet werden;
+Fortgeschritte Algorithmen wie das Nyquist-Shannon-Abtasttheorem werden nicht behandelt.
+
+\section{Vorgehen}
+
+Zunächst werden die verschiedenen Methoden genauer erarbeitet um die Funktionsweise aufzuzeigen.
+Im Rahmen dessen wird die Chatanwendung zur Veranschaulichung als Beispiel erwähnt und ggf. implementiert.
+Danach werden die Vor- und Nachteile der einzelnen Methoden aufgezeigt und argumentiert, welche Methode
+für die Chatanwendung am besten geeignet ist und ob es Argumente gibt, die für eine andere Methode sprechen.
+Zuletzt werden existierende Frameworks vorgestellt, mit den klassischen Methoden verglichen und auch hier für die Chatanwendung eine Empfehlung gegeben.
 
 
 % \section{Einleitung}
