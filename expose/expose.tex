@@ -120,11 +120,10 @@
 %% The abstract is a short summary of the work to be presented in the
 %% article.
 \begin{abstract}
-  Die Kommunikation zwischen Webbrowser und Server wird in der Regel immer durch den Browser initiiert.
+  Die Kommunikation zwischen Webbrowser und Server wird in der Regel immer durch den Client (in der Regel ein Webbrowser) initiiert.
   Dieser fragt initial den Inhalt der Website an, und kann später weitere Inhalte laden oder Daten übermitteln.
-  Der Server kann aber keine Daten nachträglich an den Browser senden, wenn dieser diese nicht aktiv anfragt.
-  In diesem Artikel werden verschiedene Möglichkeiten zur fortlaufenden
-  Kommunikation zwischen Webbrowser und Server vorgestellt und analysiert. 
+  Der Server kann aber keine Daten nachträglich an den Client senden, wenn dieser diese nicht aktiv anfragt.
+  In diesem Artikel werden verschiedene Möglichkeiten zur fortlaufenden Kommunikation zwischen Client und Server vorgestellt und analysiert. 
   Dabei werden die Vor- und Nachteile der einzelnen Methoden aufgezeigt.
 \end{abstract}
 
@@ -193,8 +192,8 @@
 \section{Motivation}
 
 Moderne Webanwendungen benötigen häufig die Fähigkeit, Daten vom Server an den Client zu senden.
-Soll zum Beispiel eine Chatanwendung realisiert werden, so muss der Server die Nachrichten an alle verbundenen Clients senden können.
-Dies kann nicht ohne weiteres funktionieren, da unter HTTP nur der Client Daten vom Server anfordern kann.
+Soll zum Beispiel eine Chatanwendung realisiert werden, so muss der Server neue Nachrichten an alle verbundenen Clients senden können.
+Dies kann nicht ohne weiteres funktionieren, da unter HTTP nur der Client Daten anfragen oder versenden kann.
 
 Es gibt mehrere Möglichkeiten, wie eine bidirektionale Kommunikation zwischen Client und Server realisiert werden kann.
 Um die richtige Lösung für ein bestimmtes Problem zu finden, ist es wichtig, die Funktionsweise sowie Vor- und Nachteile der einzelnen Methoden zu kennen.
@@ -213,7 +212,7 @@ Zuletzt werden existierende Frameworks (socket.io, faye) vorgestellt, welche die
 
 \subsection{Abgrenzung}
 
-Die Seminararbeit soll sich ausschließlich mit der bidirektionalen Kommunikation zwischen Client und Server beschäftigen.
+Die Seminararbeit soll sich ausschließlich mit der Realisierung einer bidirektionalen Kommunikation zwischen Client und Server beschäftigen.
 Es gibt bereits eine große Vielfalt an Frameworks und Realisierungsmöglichkeiten, aus welchen die Seminararbeit eine Auswahl treffen soll.
 Vergleiche zwischen Methoden und zu Frameworks werden auf Performance und Implementierungsaufwand bezogen.
 Die Chatanwendung wird in ihrem Umfang minimal gehalten, notfalls nur als theoretisches Beispiel herangezogen.
