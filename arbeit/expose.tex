@@ -175,6 +175,7 @@
 \lhead{\small Möglichkeiten zur asynchronen Kommunikation zwischen Webbrowser und Server}
 \rhead{\small Hendrik Wagner}
 
+\vspace{2em}
 \tableofcontents
 \newpage
 
@@ -191,7 +192,7 @@
 
 \section{Einleitung}
 
-Gilt es, eine Website mit bidirektionaler bzw. asynchroner Kommunikation, insbesondere mit vom Server bereitgestellten Aktualisierungen, zu realisieren,
+Gilt es, eine Website mit bidirektionaler bzw. asynchroner Kommunikation (z.B. vom Server bereitgestellten Aktualisierungen) zu realisieren,
 so muss eine Auswahl zwischen verschiedenen Ansätzen gewählt werden. 
 Ein solcher Fall kann eine Chatanwendung sein, in welcher der Server von einem Client erhaltene Nachrichten an andere Clients weitersendet.
 Ein weiteres Beispiel wäre eine rechenintensive Anwendung,
@@ -202,30 +203,59 @@ Neben diesem Ansatz gibt es \emph{WebSockets}, welche eine TCP/UDP-ähnliche Kom
 
 \section{Vorstellung der Kommunikationsvarianten}
 
+Zunächst werden die Kommunikationsvarianten in ihrer Funktionsweise erklärt und vorgestellt.
+In späteren Kapiteln wird ebenfalls auf deren Implementierung sowie auf Frameworks eingegangen.
+
 \subsection{Klassisches Polling}
 
-Unter dem HTTP-Protokoll gibt es eine Reihe von Anfragen, die der Client an den Server senden kann \cite{noauthor_http_nodate}.
+Unter dem 1990 eingeführten \cite[Abs. 1.2]{fielding_http_2022} HTTP-Protokoll gibt es eine Reihe von Anfragen, die der Client an den Server senden kann \cite{noauthor_http_nodate}.
+Das Protokoll definiert dabei explizit einen Client (in unserem Fall der Browser), welcher Anfragen an den Server (Bereitstellender der Webinhalte) versendet.
+Dieser wartet auf Anfragen und beantwortet diese \cite[Abs. 1.3]{fielding_http_2022}.
 
-HTTP Protokoll?
+Für das Vorhaben sind GET-Requests besonders relevant, also klassische Abfragen von Inhalten mittels HTTP.
+Polling, in diesem Anwendungsfall wohl am besten übersetzt mit \emph{zyklische Absuche} oder \emph{Sendeaufruf},
+beschreibt in der Webentwicklung das regelmäßige Abrufen (in einem Intervall $\Delta$) von neuen Inhalten.
+Gibt es Nachrichten, die der Server bereitstellen möchte, beantwortet dieser die Anfrage mit den neuen Inhalten -
+andernfalls wird der Antwortkörper leer sein. 
+
+Das Hauptproblem mit Polling ist der entstehende Header Overhead, der für den gesamten Zeitraum in den regelmäßigen Abfragen besteht.
+Dadurch entsteht eine Netzwerkbelastung, welche keine tatsächlichen Informationen übermittelt. 
+In der in späteren Abschnitten vorgestellten Chatanwendung handelt es sich so zum Beispiel um 156 Bytes, die sekündlich vom Server übermittelt werden,
+aber lediglich ein leeres JSON-Array enthalten.
 
 \subsection{Long Polling}
 
-Eine Optimierung des Polling-Konzepts ist das sog. \emph{Long Polling}, manchmal auch als \emph{Streaming} bekannt.
+Eine Optimierung des Polling-Konzepts ist das sog. \emph{Long Polling}.
 Dabei wird die Antwort auf eine HTTP-Anfrage zurückgehalten, bis der Server eine Nachricht versenden will \cite{noauthor_long_2021}. 
-Ein Risiko dieser Methode sind Timeouts und viele offene, ungenutzte Verbindungen. \cite{saint-andre_known_2011}.
+Probleme von Long Polling sind unter anderem der (im Vergleich zu klassischem Polling reduzierter, aber weiterhin präsenter)
+Header Overhead, mögliche Timeouts und Ressourcen, die in Vorbereitung auf eine eingehende Nachricht vom Betriebssystem
+zu Verfügung gestellt werden. \cite[Abs. 2.2]{saint-andre_known_2011}.
+
+\subsection{Streaming}
+
+Eine weitere Optimierung des Polling-Konzepts ist das sog. \emph{Streaming},
+welches die HTTP Transferkodierung Chunking (vgl \cite[Abs. 7.1]{fielding_http_2022}) verwendet, 
+also dem Aufspalten der Antwort in mehrere Packets, in welchen dann einzelne Nachrichten versendet werden.
+So kann die Anzahl an Anfragen ausgehend vom Client an den Server auf eine reduziert werden -
+der Server terminiert nie die Antwort auf die erste Anfrage \cite[Abs. 3]{saint-andre_known_2011}.
 
 \subsection{WebSockets}
 
 WebSockets sind ein vom IETF\footnote{Internet Engineering Task Force.} entwickeltes Protokoll,
 welches 2011 als Standard veröffentlicht wurde \cite{melnikov_websocket_2011}.
+Grund für dessen Entstehung ist unter anderem die Erkenntnis, dass der Versuch HTTP zu verwenden,
+um bidirektionale Kommunikation zu ermöglichen, vermeidbare Komplexität und Ineffizienz mit sich bringt \cite[S. 137f]{lubbers_pro_2010}.
+Es ist anzumerken, dass die vorgestellten Polling-Varianten das HTTP-Protokoll effektiv missbrauchen,
+um serverseitige Kommunikation zu ermöglichen:
+\begin{itemize}
+  \item Polling beinhaltet das Versenden von redundanten Anfragen, welche ohne Inhalt beantwortet werden,
+  \item Long Polling simuliert eine Verbindung mit (sehr) hoher Latenz um eine Antwort herauszuzögern und
+  \item Streaming verwendet HTTP Chunking, um innerhalb einer Response alleinstehende Nachrichten zu senden.
+\end{itemize} 
 
+\subsubsection{Spezifikation}
 Websockets haben einen simplen Handshake
 
-Notabel ist auch die Reduktion in Overhead, der bei Polling durch HTTP-Header entsteht. 
-Üblicherweise sind HTTP-Header zwischen 200 und 2.000 Bytes groß \cite{noauthor_spdy_nodate}.
-Dies kann einen ernsthaften Effekt auf die Netzwerkbelastung haben, besonders wenn die Polling- oder Nachrichtenfrequenz hoch ist.
-So würden 1.000 Nutzer, die sekündlich Nachrichten anfragen, allein durch die Header etwa 6 Mbps an Netzwerkdurchsatz verursachen \cite{lubbers_html5_nodate}.
-Dieser Netzwerkdurchsatz entfällt durch Websockets.
 
 Wie realisiert? 
 
@@ -251,22 +281,33 @@ Blabla wir machen einen Chat.
 
 \subsubsection{WebSocket Server}
 
-\section{Vergleiche zwischen Implementierungen}
+\section{Vergleiche zwischen Kommunikationsvarianten}
+
+
+\subsection{Analyse der Implementierungen}
 
 Vor- und Nachteile
 Performance?
 
-... Die Latenzen überschneiden sich mit Messungen getätigt im Rahmen eines Papers von Pimentel und Nickerson in 2012\cite{pimentel_communicating_2012}.
+... Die Latenzen überschneiden sich mit Messungen getätigt im Rahmen eines Papers von Pimentel und Nickerson \cite{pimentel_communicating_2012}.
+
+\subsection{Generelle Feststellungen}
+
+Notabel ist auch die Reduktion in Overhead, welcher bei klassischem Polling durch HTTP-Header entsteht. 
+Üblicherweise sind HTTP-Header zwischen 200 und 2.000 Bytes groß \cite{noauthor_spdy_nodate}.
+Dies kann einen ernsthaften Effekt auf die Netzwerkbelastung haben, besonders wenn die Polling- oder Nachrichtenfrequenz hoch ist.
+So würden 1.000 Nutzer, die sekündlich Nachrichten anfragen, allein durch die Header etwa 6 Mbps an Netzwerkdurchsatz verursachen \cite{lubbers_html5_nodate}.
+Dieser Netzwerkdurchsatz entfällt durch Websockets.
 
 \section{Vorstellung von Frameworks}
 
 Es gibt Frameworks, die das Implementieren von asynchroner Kommunikation erleichtern.
 
-\subsection{socket.io}
+\subsection{Socket.IO}
 
 Was ist das? Wie ist es besser oder schlechter für die Implementierung als Chat-App? Performance?
 
-\subsection{faye}
+\subsection{Faye}
 
 \section{Fazit}
 

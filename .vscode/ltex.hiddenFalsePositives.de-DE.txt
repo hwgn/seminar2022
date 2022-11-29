@@ -1,2 +1,3 @@
 {"rule":"TASK_FORCE","sentence":"^\\QInternet Engineering Task Force.\\E$"}
 {"rule":"GERMAN_SPELLER_RULE","sentence":"^\\Q... Die Latenzen überschneiden sich mit Messungen getätigt im Rahmen eines Papers von Pimentel und Nickerson in 2012\\E(?:Dummy|Ina|Jimmy-)[0-9]+\\Q.\\E$"}
+{"rule":"GERMAN_SPELLER_RULE","sentence":"^\\QFür das Vorhaben besonders relevant sind GET-Requests, welche\\E$"}
