@@ -4,3 +4,4 @@ WebSockets
 WebSocket
 Mbps
 Packets
+GET-Requests

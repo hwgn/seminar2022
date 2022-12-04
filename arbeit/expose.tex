@@ -192,12 +192,12 @@
 
 \section{Einleitung}
 
-Gilt es, eine Website mit bidirektionaler bzw. asynchroner Kommunikation (z.B. vom Server bereitgestellten Aktualisierungen) zu realisieren,
+Gilt es, eine Website mit bidirektionaler bzw. asynchroner Kommunikation (z. B. vom Server bereitgestellten Aktualisierungen) zu realisieren,
 so muss eine Auswahl zwischen verschiedenen Ansätzen gewählt werden. 
 Ein solcher Fall kann eine Chatanwendung sein, in welcher der Server von einem Client erhaltene Nachrichten an andere Clients weitersendet.
 Ein weiteres Beispiel wäre eine rechenintensive Anwendung,
 in der eine Berechnung nach einiger Zeit erfolgt und der Server das Ergebnis an den Client melden soll.
-Da der Server unter HTTP nicht ohne weiteres eine Nachricht an einen Client senden kann, muss dieser die Nachricht anfordern - 
+Da der Server unter HTTP nicht ohne weiteres eine Nachricht an einen Client senden kann, muss dieser die Nachricht anfordern -- 
 diese simple Art des Nachrichtenempfangs nennt man \emph{Polling}, also die wiederholte Abfrage nach neuen Nachrichten.
 Neben diesem Ansatz gibt es \emph{WebSockets}, welche eine TCP/UDP-ähnliche Kommunikation im Web ermöglichen.
 
@@ -215,7 +215,7 @@ Dieser wartet auf Anfragen und beantwortet diese \cite[Abs. 1.3]{fielding_http_2
 Für das Vorhaben sind GET-Requests besonders relevant, also klassische Abfragen von Inhalten mittels HTTP.
 Polling, in diesem Anwendungsfall wohl am besten übersetzt mit \emph{zyklische Absuche} oder \emph{Sendeaufruf},
 beschreibt in der Webentwicklung das regelmäßige Abrufen (in einem Intervall $\Delta$) von neuen Inhalten.
-Gibt es Nachrichten, die der Server bereitstellen möchte, beantwortet dieser die Anfrage mit den neuen Inhalten -
+Gibt es Nachrichten, die der Server bereitstellen möchte, beantwortet dieser die Anfrage mit den neuen Inhalten --
 andernfalls wird der Antwortkörper leer sein. 
 
 Das Hauptproblem mit Polling ist der entstehende Header Overhead, der für den gesamten Zeitraum in den regelmäßigen Abfragen besteht.
@@ -236,7 +236,7 @@ zu Verfügung gestellt werden. \cite[Abs. 2.2]{saint-andre_known_2011}.
 Eine weitere Optimierung des Polling-Konzepts ist das sog. \emph{Streaming},
 welches die HTTP Transferkodierung Chunking (vgl \cite[Abs. 7.1]{fielding_http_2022}) verwendet, 
 also dem Aufspalten der Antwort in mehrere Packets, in welchen dann einzelne Nachrichten versendet werden.
-So kann die Anzahl an Anfragen ausgehend vom Client an den Server auf eine reduziert werden -
+So kann die Anzahl an Anfragen ausgehend vom Client an den Server auf eine reduziert werden --
 der Server terminiert nie die Antwort auf die erste Anfrage \cite[Abs. 3]{saint-andre_known_2011}.
 
 \subsection{WebSockets}
@@ -289,7 +289,7 @@ Blabla wir machen einen Chat.
 Vor- und Nachteile
 Performance?
 
-... Die Latenzen überschneiden sich mit Messungen getätigt im Rahmen eines Papers von Pimentel und Nickerson \cite{pimentel_communicating_2012}.
+… Die Latenzen überschneiden sich mit Messungen getätigt im Rahmen eines Papers von Pimentel und Nickerson \cite{pimentel_communicating_2012}.
 
 \subsection{Generelle Feststellungen}
 
