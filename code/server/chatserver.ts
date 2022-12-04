@@ -30,21 +30,24 @@ server.listen(8081, () =>
 const lastMessages: Message[] = [];
 
 const pollingServer = http.createServer((req, res) => {
-  if (req.url === '/messages') {
+  if (req.url === '/polling') {
     let body = '';
     req.on('data', (chunk) => {
-      body += chunk;
+      body += chunk; // convert Buffer to string
     });
     req.on('end', () => {
-      // return all messages after timestamp in body
       const timestamp: string = body;
-      const messages = lastMessages.filter(
+      const messages = body ? lastMessages.filter(
         (message) => Date.parse(message.timestamp) > Date.parse(timestamp)
-      );
+      ) : lastMessages; // return all messages if no timestamp was sent
       res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify(messages));
+      if(messages.length > 0) {
+        res.end(JSON.stringify(messages)); // return messages as json
+      } else {
+        res.end(); // no messages to return
+      }
     });
-  } else if (req.url === '/messages/send') {
+  } else if (req.url === '/polling/send') {
     let body = '';
     req.on('data', (chunk) => {
       body += chunk;
@@ -56,10 +59,10 @@ const pollingServer = http.createServer((req, res) => {
       if (lastMessages.length > 100) {
         lastMessages.shift();
       }
-      res.end();
+      res.end(); // send 200 OK
     });
   } else {
-    res.end();
+    res.end(); // ignore other requests
   }
 });
 

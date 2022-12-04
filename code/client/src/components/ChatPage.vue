@@ -103,6 +103,7 @@ const wsError = ref(false);
 const httpError = ref(false);
 const httpErrorMessage = ref<string>('');
 const tab = ref('websocket');
+let lastMessageTimestamp = new Date().toISOString();
 
 const isEmpty = (str: string) => str.trim().length === 0;
 
@@ -135,7 +136,7 @@ const sendMessage = async () => {
       }));
       wsMessages.value.push(msg);
     } else {
-      await fetch('http://localhost:8082/messages/send', {
+      await fetch('http://localhost:8082/polling/send', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -179,8 +180,6 @@ ws.onerror = (error) => {
   console.log('WebSocket error', error);
 };
 
-let lastMessageTimestamp = new Date().toISOString();
-
 // fetch messages from server every 2 seconds
 const fetchMessages = async () => {
   if(httpError.value) { // slow down polling if there is an error
@@ -188,7 +187,7 @@ const fetchMessages = async () => {
     interval = setInterval(fetchMessages, timeout *= 2);
   }
   const nextTimestamp = new Date().toISOString();
-  const response = await fetch('http://localhost:8082/messages', {
+  const response = await fetch('http://localhost:8082/polling', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -217,7 +216,7 @@ const fetchMessages = async () => {
 };
 
 let timeout = 2000;
-let interval = setInterval(fetchMessages, 2000);
+let interval = setInterval(fetchMessages, timeout);
 
 
 onUnmounted(() => {

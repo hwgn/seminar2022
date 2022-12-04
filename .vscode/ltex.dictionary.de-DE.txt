@@ -5,3 +5,6 @@ WebSocket
 Mbps
 Packets
 GET-Requests
+Handshakes
+GET-Request
+Headerfelder

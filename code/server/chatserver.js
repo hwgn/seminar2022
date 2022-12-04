@@ -23,20 +23,24 @@ server.listen(8081, function () {
 // http/polling server
 var lastMessages = [];
 var pollingServer = http.createServer(function (req, res) {
-    if (req.url === '/messages') {
+    if (req.url === '/polling') {
         var body_1 = '';
         req.on('data', function (chunk) {
-            body_1 += chunk;
+            body_1 += chunk; // convert Buffer to string
         });
         req.on('end', function () {
-            // return all messages after timestamp in body
             var timestamp = body_1;
-            var messages = lastMessages.filter(function (message) { return Date.parse(message.timestamp) > Date.parse(timestamp); });
+            var messages = body_1 ? lastMessages.filter(function (message) { return Date.parse(message.timestamp) > Date.parse(timestamp); }) : lastMessages; // return all messages if no timestamp was sent
             res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify(messages));
+            if (messages.length > 0) {
+                res.end(JSON.stringify(messages)); // return messages as json
+            }
+            else {
+                res.end(); // no messages to return
+            }
         });
     }
-    else if (req.url === '/messages/send') {
+    else if (req.url === '/polling/send') {
         var body_2 = '';
         req.on('data', function (chunk) {
             body_2 += chunk;
@@ -48,11 +52,11 @@ var pollingServer = http.createServer(function (req, res) {
             if (lastMessages.length > 100) {
                 lastMessages.shift();
             }
-            res.end();
+            res.end(); // send 200 OK
         });
     }
     else {
-        res.end();
+        res.end(); // ignore other requests
     }
 });
 pollingServer.listen(8082, function () {
