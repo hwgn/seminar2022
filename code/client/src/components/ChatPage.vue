@@ -1,109 +1,120 @@
 <template>
-  <!-- tabs to switch between websocket and polling chat -->
-  <v-tabs
-      v-model="tab"
-      fixed-tabs
-      dark
-      bg-color="surface"
-      color="primary"
-      class="position-fixed"
-      style="z-index: 1; top: 0; left: 0; right: 0;"
-  >
-    <v-tab value="websocket">Websocket</v-tab>
-    <v-tab value="polling">Polling</v-tab>
-  </v-tabs>
+  <v-container>
+    <v-row>
+      <v-col cols="12" class="my-3">
+        <v-card v-if="!tab">
+          <v-card-title>Choose a chat...</v-card-title>
+          <v-card-actions>
+            <v-btn @click="chooseChat('WebSocket')">Websocket</v-btn>
+            <v-btn @click="chooseChat('Polling')">Polling</v-btn>
+          </v-card-actions>
+        </v-card>
 
-  <!-- websocket chat -->
-  <v-window v-model="tab" class="mt-10" style="margin-bottom: 150px">
-    <v-window-item value="websocket">
-      <v-container>
-        <v-row>
-          <v-col cols="12">
-            <v-card class="my-2" v-for="(message, index) in wsMessages" :key="index">
-              <v-card-title>{{ message.sender }}</v-card-title>
-              <v-card-text>{{ message.content }}</v-card-text>
-            </v-card>
-            <!-- websocket connecting alert -->
-            <v-alert v-model="wsConnecting" type="info" elevation="2">
-              <v-progress-circular
-                  indeterminate
-                  size="20"
-                  class="mr-4"
-              />
-              Connecting to websocket...
-            </v-alert>
-            <!-- websocket error alert -->
-            <v-alert v-model="wsError" type="error" elevation="2">
-              <span>WebSocket error</span>
-            </v-alert>
-          </v-col>
-        </v-row>
-      </v-container>
-
-    </v-window-item>
-    <!-- polling chat -->
-    <v-window-item value="polling">
-      <v-container>
-        <v-row>
-          <v-col cols="12">
-            <v-card class="my-2" v-for="(message, index) in httpMessages" :key="index">
-              <v-card-title>{{ message.sender }}</v-card-title>
-              <v-card-text>{{ message.content }}</v-card-text>
-            </v-card>
-            <!-- polling error -->
-            <v-alert v-model="httpError" type="error" elevation="2">
-              <td v-html="httpErrorMessage"></td>
-            </v-alert>
-          </v-col>
-        </v-row>
-      </v-container>
-    </v-window-item>
-    <v-footer
-        app
-        :fixed="true"
-        class="text-center"
-    >
-      <v-alert
-          v-model="showAlert"
+        <v-alert
+          v-if="showAlert && tab"
           type="info"
           dismissible
           transition="scale-transition"
-      >
-        <v-text-field
+        >
+          <v-text-field
             v-model="username"
-            label="Choose your username"
+            label="Choose your username (Press Enter to confirm)"
             outlined
             @keyup.enter="checkUsername"
-        />
-      </v-alert>
-      <v-textarea
-          v-if="!showAlert"
-          v-model="message"
-          ref="messagebox"
-          :label="'Send message as ' + username"
-          outlined
-          @keyup.enter="sendMessage"
-      />
-    </v-footer>
-  </v-window>
+            ref="usernamebox"
+          />
+        </v-alert>
+
+        <v-window v-model="tab" class="my-3">
+          <v-window-item value="" />
+          <v-window-item value="WebSocket">
+            <web-socket-chat
+              ref="wsChatRef"
+              @append-messages="appendMessages"
+            />
+          </v-window-item>
+          <v-window-item value="Polling">
+            <polling-chat
+              ref="pollingChatRef"
+              @append-messages="appendMessages"
+            />
+          </v-window-item>
+        </v-window>
+        <div>
+          <v-card v-if="tab && !showAlert && messages.length < 1">
+            <v-card-title> {{ tab }} chat </v-card-title>
+            <v-card-text>
+              Send your first message by typing in the chat window and pressing
+              enter
+            </v-card-text>
+          </v-card>
+          <v-card
+            v-for="(message, index) in messages"
+            :key="index"
+            class="mt-2"
+          >
+            <v-card-title>{{ message.sender }}</v-card-title>
+            <v-card-text>{{ message.content }}</v-card-text>
+          </v-card>
+        </div>
+      </v-col>
+    </v-row>
+  </v-container>
+
+  <v-footer app :fixed="true" class="text-center">
+    <v-textarea
+      v-if="!showAlert"
+      v-model="message"
+      ref="messagebox"
+      :label="'Send message as ' + username + ' via ' + tab + ' chat:'"
+      outlined
+      transition="scale-transition"
+      @keyup.enter="sendMessage"
+    />
+  </v-footer>
 </template>
 
 <script setup lang="ts">
-import {ref, nextTick, onUnmounted} from 'vue';
-import {Message} from '@/types';
+import { ref, nextTick, Ref } from "vue";
+import { Message } from "@/types";
+import WebSocketChat from "@/components/WebSocketChat.vue";
+import PollingChat from "@/components/PollingChat.vue";
 
-const wsMessages = ref<Message[]>([]);
-const httpMessages = ref<Message[]>([]);
-const message = ref('');
-const username = ref('');
+const messages = ref<Message[]>([]);
+const message = ref("");
+const username = ref("");
 const showAlert = ref(true);
 const messagebox = ref(null);
-const wsConnecting = ref(true);
-const wsError = ref(false);
-const httpError = ref(false);
-const httpErrorMessage = ref<string>('');
-const tab = ref('websocket');
-let lastMessageTimestamp = new Date().toISOString();
+const usernamebox = ref(null);
+const tab = ref("");
+
+const wsChatRef = ref(null) as Ref<typeof WebSocketChat | null>;
+const pollingChatRef = ref(null) as Ref<typeof PollingChat | null>;
+
+const chooseChat = async (chat: string) => {
+  tab.value = chat;
+  await nextTick();
+  usernamebox.value?.focus();
+};
+
+// eslint-disable-next-line no-unused-vars
+const updateMessages = async (newMessages: Message[]) => {
+  messages.value = newMessages;
+  await nextTick();
+  window.scrollTo({
+    top: document.body.scrollHeight,
+    behavior: "smooth",
+  });
+};
+
+const appendMessages = async (newMessages: Message[]) => {
+  messages.value = [...messages.value, ...newMessages];
+  await nextTick();
+  window.scrollTo({
+    top: document.body.scrollHeight,
+    behavior: "smooth",
+  });
+};
 
 const isEmpty = (str: string) => str.trim().length === 0;
 
@@ -113,115 +124,32 @@ const checkUsername = async () => {
   }
   showAlert.value = false;
   await nextTick();
-  if (messagebox.value) {
-    messagebox.value.focus();
-  }
+  messagebox.value?.focus();
 };
 
 const sendMessage = async () => {
   if (isEmpty(username.value)) {
     showAlert.value = true;
     return;
+  } else if (isEmpty(message.value)) {
+    return;
   }
-  if (!isEmpty(message.value)) {
-    const msg = {
-      sender: username.value,
-      content: message.value,
-      timestamp: new Date().toISOString(),
-    };
-    if (tab.value === 'websocket') {
-      await ws.send(JSON.stringify({
-        type: 'message',
-        data: msg,
-      }));
-      wsMessages.value.push(msg);
-    } else {
-      await fetch('http://localhost:8082/polling/send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(msg),
-      });
-    }
 
-    message.value = '';
-    await nextTick();
-    window.scrollTo({
-      top: document.body.scrollHeight,
-      behavior: 'smooth',
-    });
-  }
-};
-
-const ws = new WebSocket('ws://localhost:8081');
-
-ws.onmessage = async (event) => {
-  const reader = new FileReader();
-  await reader.readAsText(event.data);
-  reader.onload = async () => {
-    const msg = JSON.parse(reader.result as string);
-    console.log('Received message', msg);
-    wsMessages.value.push(msg.data);
-    await nextTick()
-    window.scrollTo({
-      top: document.body.scrollHeight,
-      behavior: 'smooth',
-    });
+  const msg: Message = {
+    sender: username.value,
+    content: message.value,
+    timestamp: new Date().toISOString(),
   };
-};
 
-ws.onopen = () => {
-  console.log('Connected to websocket');
-  wsConnecting.value = false;
-};
-
-ws.onerror = (error) => {
-  console.log('WebSocket error', error);
-};
-
-// fetch messages from server every 2 seconds
-const fetchMessages = async () => {
-  if(httpError.value) { // slow down polling if there is an error
-    clearInterval(interval);
-    interval = setInterval(fetchMessages, timeout *= 2);
+  switch (tab.value) {
+    case "WebSocket":
+      await wsChatRef.value?.sendMessage(msg);
+      break;
+    case "Polling":
+      await pollingChatRef.value?.sendMessage(msg);
+      break;
   }
-  const nextTimestamp = new Date().toISOString();
-  const response = await fetch('http://localhost:8082/polling', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: lastMessageTimestamp,
-  });
-  if (response.ok) {
-    timeout = 2000;
-    if(httpError.value) {
-      clearInterval(interval);
-      interval = setInterval(fetchMessages, timeout);
-      httpError.value = false;
-    }
-    const messages = await response.json();
-    httpMessages.value = httpMessages.value.concat(messages);
-    lastMessageTimestamp = nextTimestamp;
-    await nextTick()
-    window.scrollTo({
-      top: document.body.scrollHeight,
-      behavior: 'smooth',
-    });
-  } else {
-    httpError.value = true;
-    httpErrorMessage.value = await response.text();
-  }
+
+  message.value = "";
 };
-
-let timeout = 2000;
-let interval = setInterval(fetchMessages, timeout);
-
-
-onUnmounted(() => {
-  ws.close();
-  clearInterval(interval);
-});
-
 </script>

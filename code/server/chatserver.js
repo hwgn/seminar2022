@@ -36,7 +36,7 @@ var pollingServer = http.createServer(function (req, res) {
                 res.end(JSON.stringify(messages)); // return messages as json
             }
             else {
-                res.end(); // no messages to return
+                res.end(JSON.stringify([])); // return empty array
             }
         });
     }

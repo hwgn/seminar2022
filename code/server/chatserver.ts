@@ -44,7 +44,7 @@ const pollingServer = http.createServer((req, res) => {
       if(messages.length > 0) {
         res.end(JSON.stringify(messages)); // return messages as json
       } else {
-        res.end(); // no messages to return
+        res.end(JSON.stringify([])); // return empty array
       }
     });
   } else if (req.url === '/polling/send') {

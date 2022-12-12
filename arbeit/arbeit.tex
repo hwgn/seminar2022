@@ -216,10 +216,10 @@ So kann der Server nur die Nachrichten zurückgeben, die nach diesem Zeitstempel
 
 Es wird nicht auf die Darstellung der Nachrichten oder des Chats eingegangen, da dies nicht relevant für die Implementierung ist.
 Entsprechende Codeabschnitte sind daher ausgelassen.
-Die vollständige Implementierung ist in der Anlage \ref{app:polling} zu finden.
+Die vollständige Implementierung ist im Repository \cite[\texttt{code/client/src/components/PollingChat.vue}]{wagner_seminar2022_2022} zu finden.
 
 
-\begin{lstlisting}[caption={Beispielhafte Nachricht}, label={lst:polling-json}]
+\begin{lstlisting}[caption={Beispielhafte Nachricht}, label={lst:polling-json}, numbers=none]
 {
   content: "Hello World!",
   sender: "Alice",
@@ -227,133 +227,63 @@ Die vollständige Implementierung ist in der Anlage \ref{app:polling} zu finden.
 }
 \end{lstlisting}
 
-% \subsubsection{Polling Server}
+\subsubsection{Polling Server}
 
-\begin{lstlisting}[caption={Polling Server}, label={lst:polling-server}]
-import * as http from 'http';
 
-type Message = {
-  sender: string;
-  content: string;
-  timestamp: string;
-};
 
-const lastMessages: Message[] = [];
+\subsubsection{Polling Client}
 
-const pollingServer = http.createServer((req, res) => {
-  if (req.url === '/polling') {
-    let body = '';
-    req.on('data', (chunk) => {
-      body += chunk; // convert Buffer to string
-    });
-    req.on('end', () => {
-      const timestamp: string = body;
-      const messages = body ? lastMessages.filter(
-        (message) => Date.parse(message.timestamp) > Date.parse(timestamp)
-      ) : lastMessages; // return all messages if no timestamp was sent
-      res.setHeader('Content-Type', 'application/json');
-      if(messages.length > 0) {
-        res.end(JSON.stringify(messages)); // return messages as json
-      } else {
-        res.end(); // no messages to return
-      }
-    });
-  } else if (req.url === '/polling/send') {
-    let body = '';
-    req.on('data', (chunk) => {
-      body += chunk;
-    });
-    req.on('end', () => {
-      const message: Message = JSON.parse(body);
-      console.log('Received http message => ' + message);
-      lastMessages.push(message);
-      if (lastMessages.length > 100) {
-        lastMessages.shift();
-      }
-      res.end(); // send 200 OK
-    });
-  } else {
-    res.end(); // ignore other requests
-  }
-});
+Der Client besteht aus der Komponente \texttt{PollingChat.vue}, welche die Funktionen zum Senden und Empfangen von Nachrichten enthält.
+Die Darstellung, sowie die Speicherung von Nachrichten und Nutzdaten erfolgt in der Komponente \texttt{ChatPage.vue} (vgl. jeweils \cite[\texttt{code/client/src/components/}]{wagner_seminar2022_2022}).
 
-pollingServer.listen(8082, () =>
-  console.log(`Polling server started on port 8082`)
-);
-\end{lstlisting}
-
-% \subsubsection{Polling Client}
-
-\begin{lstlisting}[caption={Polling Client}, label={lst:polling-client}]
-import {ref} from 'vue';
-
-type Message = {
-  sender: string;
-  content: string;
-  timestamp: string;
-};
-
-const httpMessages = ref<Message[]>([]);
-const message = ref('');
-const username = ref('');
-let lastMessageTimestamp = new Date().toISOString();
-
-const sendMessage = async () => {
-  const msg = {
-    sender: username.value,
-    content: message.value,
-    timestamp: new Date().toISOString(),
-  };
-    
-  await fetch('http://localhost:8082/polling/send', {
-    method: 'POST',
+\begin{lstlisting}[caption={Polling Client: Nachricht senden}, label={lst:polling-server-send-message}, firstnumber=18]
+const sendMessage = async (msg: Message) => {
+  await fetch("http://localhost:8082/polling/send", {
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify(msg),
   });
-
-  message.value = '';
 };
+\end{lstlisting}
 
-// fetch messages from server every 2 seconds
+Um eine Nachricht zu versenden, wird lediglich eine HTTP POST-Anfrage an die URL \texttt{/polling/send} gesendet.
+Die Nachricht wird dabei als JSON-Objekt in der Anfrage übermittelt.
+
+\begin{lstlisting}[caption={Polling Client: Nachrichten abfragen}, label={lst:polling-server-get-messages}, firstnumber=29]
 const fetchMessages = async () => {
-  if(httpError.value) { // slow down polling if there is an error
-    clearInterval(interval);
-    interval = setInterval(fetchMessages, timeout *= 2);
-  }
   const nextTimestamp = new Date().toISOString();
-  const response = await fetch('http://localhost:8082/polling', {
-    method: 'POST',
+  const response = await fetch("http://localhost:8082/polling", {
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: lastMessageTimestamp,
   });
   if (response.ok) {
-    timeout = 2000;
-    if(httpError.value) {
-      clearInterval(interval);
-      interval = setInterval(fetchMessages, timeout);
+    if (httpError.value) {
       httpError.value = false;
     }
-    const messages = await response.json();
-    httpMessages.value = httpMessages.value.concat(messages);
+    
+    emit("appendMessages", await response.json());
     lastMessageTimestamp = nextTimestamp;
-    await nextTick()
-    window.scrollTo({
-      top: document.body.scrollHeight,
-      behavior: 'smooth',
-    });
   } else {
     httpError.value = true;
     httpErrorMessage.value = await response.text();
   }
 };
 
-let timeout = 2000;
-let interval = setInterval(fetchMessages, timeout);
+const interval = setInterval(fetchMessages, 2000);
 \end{lstlisting}
+
+Mittels einer HTTP POST-Anfrage an die URL \texttt{/polling} werden die Nachrichten abgefragt.
+Die Anfrage enthält dabei den Zeitstempel der letzten Nachricht, die der Client erhalten hat, als string.
+Der Server antwortet mit einer Liste von Nachrichten, die nach diesem Zeitstempel eingegangen sind.
+Diese werden anschließend an die Komponente \texttt{ChatPage.vue} mittels des Events \texttt{appendMessages} übermittelt.
+
+Um die Nachrichten regelmäßig abzufragen, wird ein Interval gesetzt, welches alle zwei Sekunden die Funktion \texttt{fetchMessages} aufruft.
+Dieses Interval wird bei der Initialisierung der Komponente gesetzt und bei der Entfernung der Komponente wieder gelöscht.
 
 
 

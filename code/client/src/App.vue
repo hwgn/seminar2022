@@ -6,6 +6,6 @@
   </v-app>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import Chat from './components/ChatPage.vue'
 </script>
