@@ -7,23 +7,9 @@
           <v-card-actions>
             <v-btn @click="chooseChat('WebSocket')">Websocket</v-btn>
             <v-btn @click="chooseChat('Polling')">Polling</v-btn>
+            <v-btn @click="chooseChat('LongPolling')">Long Polling</v-btn>
           </v-card-actions>
         </v-card>
-
-        <v-alert
-          v-if="showAlert && tab"
-          type="info"
-          dismissible
-          transition="scale-transition"
-        >
-          <v-text-field
-            v-model="username"
-            label="Choose your username (Press Enter to confirm)"
-            outlined
-            @keyup.enter="checkUsername"
-            ref="usernamebox"
-          />
-        </v-alert>
 
         <v-window v-model="tab" class="my-3">
           <v-window-item value="" />
@@ -36,6 +22,12 @@
           <v-window-item value="Polling">
             <polling-chat
               ref="pollingChatRef"
+              @append-messages="appendMessages"
+            />
+          </v-window-item>
+          <v-window-item value="LongPolling">
+            <long-polling-chat
+              ref="longPollingChatRef"
               @append-messages="appendMessages"
             />
           </v-window-item>
@@ -62,6 +54,20 @@
   </v-container>
 
   <v-footer app :fixed="true" class="text-center">
+    <v-alert
+      v-if="showAlert && tab"
+      type="info"
+      dismissible
+      transition="scale-transition"
+    >
+      <v-text-field
+        v-model="username"
+        label="Choose your username (Press Enter to confirm)"
+        outlined
+        @keyup.enter="checkUsername"
+        ref="usernamebox"
+      />
+    </v-alert>
     <v-textarea
       v-if="!showAlert"
       v-model="message"
@@ -79,6 +85,7 @@ import { ref, nextTick, Ref } from "vue";
 import { Message } from "@/types";
 import WebSocketChat from "@/components/WebSocketChat.vue";
 import PollingChat from "@/components/PollingChat.vue";
+import LongPollingChat from "@/components/LongPollingChat.vue";
 
 const messages = ref<Message[]>([]);
 const message = ref("");
@@ -90,6 +97,7 @@ const tab = ref("");
 
 const wsChatRef = ref(null) as Ref<typeof WebSocketChat | null>;
 const pollingChatRef = ref(null) as Ref<typeof PollingChat | null>;
+const longPollingChatRef = ref(null) as Ref<typeof LongPollingChat | null>;
 
 const chooseChat = async (chat: string) => {
   tab.value = chat;
@@ -147,6 +155,9 @@ const sendMessage = async () => {
       break;
     case "Polling":
       await pollingChatRef.value?.sendMessage(msg);
+      break;
+    case "LongPolling":
+      await longPollingChatRef.value?.sendMessage(msg);
       break;
   }
 
