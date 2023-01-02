@@ -1,0 +1,11 @@
+# polling message sending
+msc {
+    arcgradient = 8, hscale = "0.8";
+
+    a [label="Client"],b [label="Server"];
+
+    a->b [label="send message [Message A]"];
+    b->a [label="response [success]"];
+    a->b [label="polling [Timestamp=0]"];
+    b->a [label="response [Message A]"];
+}

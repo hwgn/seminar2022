@@ -1,0 +1,14 @@
+# long polling client/server example
+msc {
+    arcgradient = 8, hscale = "0.8";
+
+    a [label="Client"],b [label="Server"];
+
+    a->b [label="polling [Timestamp=0]"];
+    ...;
+    b box b [label="Receive Message A from another client"];
+    b->a [label="response [Message A]"];
+    a box a [label="Update Timestamp to A's Timestamp"];
+    a->b [label="polling [Timestamp=A's Timestamp]"];
+    ...;
+}

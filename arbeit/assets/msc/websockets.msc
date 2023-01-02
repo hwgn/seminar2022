@@ -1,0 +1,16 @@
+# websocket client/server example
+msc {
+    arcgradient = 8, hscale = "0.8";
+
+    a [label="Client"],b [label="Server"];
+
+    |||;
+    --- [label="connection established"];
+    ...;
+    b box b [label="Receive Message A from another client"];
+    b->a [label="Message A"];
+    ...;
+    a box a [label="Client composes Message B"];
+    a->b [label="Message B"];
+    ...;
+}

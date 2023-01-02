@@ -72,7 +72,7 @@
   Die Kommunikation zwischen Webbrowser und Server wird klassischerweise durch den Client (in der Regel ein Webbrowser) initiiert.
   Dieser fragt den Inhalt einer Website an, und kann später weitere Inhalte laden oder Daten übermitteln.
   Der Server kann aber keine Daten nachträglich an den Client senden, wenn dieser diese nicht aktiv anfragt.
-  In diesem Artikel werden verschiedene Möglichkeiten zur fortlaufenden Kommunikation zwischen Client und Server vorgestellt und analysiert. 
+  In diesem Artikel werden verschiedene Möglichkeiten zur fortlaufenden Kommunikation zwischen Client und Server vorgestellt und analysiert.
   Dabei werden die Vor- und Nachteile der einzelnen Methoden aufgezeigt.
 \end{abstract}
 
@@ -99,11 +99,11 @@
 \section{Einleitung}
 
 Gilt es, eine Website mit bidirektionaler bzw. asynchroner Kommunikation (z. B. vom Server bereitgestellten Aktualisierungen) zu realisieren,
-so muss eine Auswahl zwischen verschiedenen Ansätzen gewählt werden. 
+so muss eine Auswahl zwischen verschiedenen Ansätzen gewählt werden.
 Ein solcher Fall kann eine Chatanwendung sein, in welcher der Server von einem Client erhaltene Nachrichten an andere Clients weitersendet.
 Ein weiteres Beispiel wäre eine rechenintensive Anwendung,
 in der eine Berechnung nach einiger Zeit erfolgt und der Server das Ergebnis an den Client melden soll.
-Da der Server unter HTTP nicht ohne weiteres eine Nachricht an einen Client senden kann, muss dieser die Nachricht anfordern -- 
+Da der Server unter HTTP nicht ohne weiteres eine Nachricht an einen Client senden kann, muss dieser die Nachricht anfordern --
 diese simple Art des Nachrichtenempfangs nennt man \emph{Polling}, also die wiederholte Abfrage nach neuen Nachrichten.
 Neben diesem Ansatz gibt es \emph{WebSockets}, welche eine TCP/UDP-ähnliche Kommunikation im Web ermöglichen.
 
@@ -122,14 +122,31 @@ Für das Vorhaben sind GET-Requests besonders relevant, also klassische Abfragen
 Polling, in diesem Anwendungsfall wohl am besten übersetzt mit \emph{zyklische Absuche} oder \emph{Sendeaufruf},
 beschreibt in der Webentwicklung das regelmäßige Abrufen (in einem Intervall $\Delta$) von neuen Inhalten.
 Gibt es Nachrichten, die der Server bereitstellen möchte, beantwortet dieser die Anfrage mit den neuen Inhalten --
-andernfalls wird der Antwortkörper leer sein. 
+andernfalls wird der Antwortkörper leer sein.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=.45\textwidth]{assets/msc/polling.png}
+  \caption[Nachrichtenempfang bei Polling-Kommunikation]{Beispiel von Nachrichtenempfang bei einer klassischen Polling-Kommunikation.
+    Der Client sendet regelmäßig eine Anfrage an den Server, welche entweder mit leerer Antwort oder mit neuen Inhalten beantwortet wird.}
+  \label{fig:polling}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=.45\textwidth]{assets/msc/polling-send.png}
+  \caption[Nachrichtenversand bei Polling-Kommunikation]{Beispiel von Nachrichtenversand bei einer klassischen Polling-Kommunikation.
+    Der Client sendet eine Nachricht an den Server, welche daraufhin mittels polling abgerufen werden kann.}
+    \label{fig:polling_send}
+\end{figure}
 
 Das Hauptproblem mit Polling ist der entstehende Header Overhead, der für den gesamten Zeitraum in den regelmäßigen Abfragen besteht.
-Dadurch entsteht eine Netzwerkbelastung, welche keine tatsächlichen Informationen übermittelt. 
+Dadurch entsteht eine Netzwerkbelastung, welche keine tatsächlichen Informationen übermittelt.
 In der in späteren Abschnitten vorgestellten Chatanwendung handelt es sich so zum Beispiel um 156 Bytes, die sekündlich vom Server übermittelt werden,
 aber lediglich ein leeres JSON-Array enthalten.
 
-\subsubsection{Spezifikation} 
+
+\subsubsection{Spezifikation}
 
 Polling ist in der Spezifikation von HTTP nicht definiert, es handelt sich hierbei um eine Implementierung des Clients und des Servers.
 Meist wird Polling durch JavaScript-Code realisiert, welcher in einem bestimmten Intervall (z. B. alle 5 Sekunden) eine Anfrage an den Server sendet.
@@ -141,7 +158,16 @@ Eine solche Optimierung setzt allerdings voraus, dass der Server in der Lage ist
 \subsection{Long Polling}
 
 Eine Optimierung des Polling-Konzepts ist das sog. \emph{Long Polling}.
-Dabei wird die Antwort auf eine HTTP-Anfrage zurückgehalten, bis der Server eine Nachricht versenden will \cite{noauthor_long_2021}. 
+Dabei wird die Antwort auf eine HTTP-Anfrage zurückgehalten, bis der Server eine Nachricht versenden will \cite{noauthor_long_2021}.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=.45\textwidth]{assets/msc/long-polling.png}
+  \caption[Nachrichtenempfang bei Long Polling]{Beispiel von Nachrichtenempfang bei Long Polling.
+  Der Server beantwortet die Anfrage des Clients erst, wenn er eine Nachricht hat, die er übermitteln möchte.
+  Der Nachrichtenversand verläuft analog zu Polling.}
+  \label{fig:long_polling}
+\end{figure}
 
 Probleme von Long Polling sind unter anderem der (im Vergleich zu klassischem Polling reduzierter, aber weiterhin präsenter)
 Header Overhead, mögliche Timeouts und Ressourcen, die in Vorbereitung auf eine eingehende Nachricht vom Betriebssystem
@@ -150,10 +176,20 @@ zu Verfügung gestellt werden. \cite[Abs. 2.2]{saint-andre_known_2011}.
 \subsection{Streaming}
 
 Eine weitere Optimierung des Polling-Konzepts ist das sog. \emph{Streaming},
-welches die HTTP Transferkodierung Chunking (vgl. \cite[Abs. 7.1]{fielding_http_2022}) verwendet, 
+welches die HTTP Transferkodierung Chunking (vgl. \cite[Abs. 7.1]{fielding_http_2022}) verwendet,
 also dem Aufspalten der Antwort in mehrere Packets, in welchen dann einzelne Nachrichten versendet werden.
 So kann die Anzahl an Anfragen ausgehend vom Client an den Server auf eine reduziert werden --
 der Server terminiert nie die Antwort auf die erste Anfrage \cite[Abs. 3]{saint-andre_known_2011}.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=.45\textwidth]{assets/msc/streaming.png}
+  \caption[Nachrichtenempfang bei Streaming]{Beispiel von Nachrichtenempfang bei Streaming.
+  Der Client initiiert den Streaming-Prozess durch eine einmalige Anfrage.
+  Daraufhin sendet der Server Teilantworten an den Client, sobald neue Nachrichten verfügbar sind.
+  Der Nachrichtenversand verläuft analog zu Polling.}
+  \label{fig:streaming}
+\end{figure}
 
 Mit Streaming werden einige Nachteile von Polling beglichen, andere -- insb. mögliche Timeouts und unnötig reservierte Ressourcen -- bleiben bestehen.
 Zusätzlich besteht das Risiko, dass diese Form von Kommunikation nicht auf allen Systemen funktioniert --
@@ -172,13 +208,23 @@ um serverseitige Kommunikation zu ermöglichen:
   \item Polling beinhaltet das Versenden von redundanten Anfragen, welche ohne Inhalt beantwortet werden,
   \item Long Polling simuliert eine Verbindung mit (sehr) hoher Latenz um eine Antwort herauszuzögern und
   \item Streaming verwendet HTTP Chunking, um innerhalb einer Response alleinstehende Nachrichten zu senden.
-\end{itemize} 
+\end{itemize}
 
 Diesen Missbrauch haben WebSockets nicht -- es handelt sich hierbei um ein komplett neues Protokoll,
 welches diese Problemstellung direkt adressiert (vgl. \cite[Abs. 1.1]{melnikov_websocket_2011}),
 indem es eine TCP-Verbindung zwischen Client und Server aufbaut und unterstützt.
 Genauer baut WebSockets einen Tunnel zwischen TCP und IP auf, sodass darauffolgend TCP-Kommunikation Systemübergreifend erfolgen kann (vgl. \cite[Abs. 1.5]{melnikov_websocket_2011}).
 HTTP wird dann lediglich für die initialen Handshakes verwendet -- danach nicht mehr.
+
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=.45\textwidth]{assets/msc/websockets.png}
+  \caption[Nachrichtenaustausch bei WebSockets]{Beispiel von Nachrichtenaustausch bei WebSockets.
+  Nach dem Handshake wird eine TCP-Verbindung zwischen Client und Server aufgebaut.
+  Von nun an können Nachrichten in beide Richtungen ausgetauscht werden.}
+  \label{fig:websockets}
+\end{figure}
 
 \subsubsection{Spezifikation}
 Um eine Verbindung über einen WebSocker aufzubauen, wird zunächst vom Client aus eine HTTP-Anfrage gesendet.
@@ -309,7 +355,7 @@ Performance?
 
 \subsection{Generelle Feststellungen}
 
-Notabel ist auch die Reduktion in Overhead, welcher bei klassischem Polling durch HTTP-Header entsteht. 
+Notabel ist auch die Reduktion in Overhead, welcher bei klassischem Polling durch HTTP-Header entsteht.
 Üblicherweise sind HTTP-Header zwischen 200 und 2.000 Bytes groß \cite{noauthor_spdy_nodate}.
 Dies kann einen ernsthaften Effekt auf die Netzwerkbelastung haben, besonders wenn die Polling- oder Nachrichtenfrequenz hoch ist.
 So würden 1.000 Nutzer, die sekündlich Nachrichten anfragen, allein durch die Header etwa 6 Mbps an Netzwerkdurchsatz verursachen \cite{lubbers_html5_nodate}.
@@ -869,6 +915,8 @@ Was ist das? Wie ist es besser oder schlechter für die Implementierung als Chat
 
 \bibliographystyle{literature/bibtex/IEEEtran}
 \bibliography{literature/literature}
+
+\listoffigures
 
 \end{document}
 \endinput

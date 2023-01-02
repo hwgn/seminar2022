@@ -40,13 +40,31 @@
               enter
             </v-card-text>
           </v-card>
+
           <v-card
             v-for="(message, index) in messages"
             :key="index"
             class="mt-2"
           >
-            <v-card-title>{{ message.sender }}</v-card-title>
-            <v-card-text>{{ message.content }}</v-card-text>
+            <v-card-text>
+              <v-list-item class="w-100">
+                <v-list-item-subtitle class="d-sm-none">
+                  {{ new Date(message.timestamp).toLocaleTimeString() }}
+                </v-list-item-subtitle>
+
+                <v-list-item-title class="text-h6 font-weight-bold">
+                  {{ message.sender }}
+                </v-list-item-title>
+
+                <v-list-item-media>{{ message.content }}</v-list-item-media>
+
+                <template v-slot:append>
+                  <div class="hidden-xs mr-3">
+                    {{ new Date(message.timestamp).toLocaleTimeString() }}
+                  </div>
+                </template>
+              </v-list-item>
+            </v-card-text>
           </v-card>
         </div>
       </v-col>

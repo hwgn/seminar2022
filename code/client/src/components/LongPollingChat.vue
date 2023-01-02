@@ -32,8 +32,8 @@ const fetchMessages = async () => {
   if (!fetchNext) {
     return;
   }
+
   fetchNext = false;
-  const nextTimestamp = new Date().toISOString();
   const response = await fetch("http://localhost:8083/long-polling", {
     method: "POST",
     headers: {
@@ -45,9 +45,13 @@ const fetchMessages = async () => {
     if (httpError.value) {
       httpError.value = false;
     }
-    emit("appendMessages", await response.json());
+    const messages = await response.json();
+    emit("appendMessages", messages);
     fetchNext = true;
-    lastMessageTimestamp = nextTimestamp;
+
+    // update last message timestamp to the timestamp of the last message
+    lastMessageTimestamp = messages[messages.length - 1].timestamp;
+
   } else {
     httpError.value = true;
     httpErrorMessage.value = await response.text();

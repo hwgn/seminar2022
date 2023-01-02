@@ -9,12 +9,11 @@ wss.on('connection', function (ws) {
     console.log('[WEBSOCKET] Client connected');
     ws.on('message', function (message) {
         console.log('[WEBSOCKET] ' + getTimeString(message.timestamp) + ' | ' + message.sender + ': ' + message.content);
-        wss.emit('message', message);
-        // wss.clients.forEach((client: WebSocket) => {
-        //   if (client !== ws && client.readyState === WebSocket.OPEN) {
-        //     client.send(message);
-        //   }
-        // });
+        wss.clients.forEach(function (client) {
+            if (client !== ws && client.readyState === WebSocket.OPEN) {
+                client.send(message);
+            }
+        });
     });
 });
 wss.on('close', function () { return console.log('[WEBSOCKET] Client disconnected'); });
@@ -67,9 +66,11 @@ var pollingServer = http.createServer(function (req, res) {
         res.end(); // ignore other requests
     }
 });
+
 pollingServer.listen(8082, function () {
     return console.log("Polling server started on port 8082");
 });
+
 // long polling server
 var lastLongPollingMessages = [];
 var longPollingServer = http.createServer(function (req, res) {
