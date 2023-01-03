@@ -1,17 +1,34 @@
 <template>
   <v-container>
     <v-row>
-      <v-col cols="12" class="my-3">
-        <v-card v-if="!tab">
-          <v-card-title>Choose a chat...</v-card-title>
-          <v-card-actions>
-            <v-btn @click="chooseChat('WebSocket')">Websocket</v-btn>
-            <v-btn @click="chooseChat('Polling')">Polling</v-btn>
-            <v-btn @click="chooseChat('LongPolling')">Long Polling</v-btn>
-          </v-card-actions>
+      <v-col cols="12">
+        <v-card
+          v-if="!chatChosen"
+          style="position: fixed; top: 10; z-index: 1;"
+          elevation="5"
+        >
+          <v-card-title class="ma-2 mb-0">Choose a chat...</v-card-title>
+          <div class="ma-2 mt-0">
+            <v-btn @click="chooseChat('WebSocket')" variant="text">Websocket</v-btn>
+            <v-btn @click="chooseChat('Polling')" variant="text">Polling</v-btn>
+            <v-btn @click="chooseChat('LongPolling')" variant="text">Long Polling</v-btn>
+            <v-btn @click="chooseChat('Streaming')" variant="text">Streaming</v-btn>
+            <!--v-btn @click="chooseChat('SSE')" variant="text">SSE</v-btn>
+            <v-btn @click="chooseChat('ServerPush')" variant="text">Server Push</v-btn-->
+          </div>
         </v-card>
 
-        <v-window v-model="tab" class="my-3">
+        <v-alert
+          v-model="chatChosen"
+          elevation="5"
+          :closable="true"
+          close-icon="mdi-arrow-left"
+          style="position: fixed; top: 10; z-index: 1"
+        >
+          <v-alert-title> {{ tab }} Chat </v-alert-title>
+        </v-alert>
+
+        <v-window v-if="chatChosen" v-model="tab">
           <v-window-item value="" />
           <v-window-item value="WebSocket">
             <web-socket-chat
@@ -31,8 +48,14 @@
               @append-messages="appendMessages"
             />
           </v-window-item>
+          <v-window-item value="Streaming">
+            <streaming-chat
+              ref="streamingChatRef"
+              @append-messages="appendMessages"
+            />
+          </v-window-item>
         </v-window>
-        <div>
+        <div style="margin-top: 2cm;">
           <v-card v-if="tab && !showAlert && messages.length < 1">
             <v-card-title> {{ tab }} chat </v-card-title>
             <v-card-text>
@@ -49,7 +72,8 @@
             <v-card-text>
               <v-list-item class="w-100">
                 <v-list-item-subtitle class="d-sm-none">
-                  {{ new Date(message.timestamp).toLocaleTimeString() }}
+                  {{ new Date(message.timestamp).toLocaleTimeString() }} -
+                  {{ message.protocol }}
                 </v-list-item-subtitle>
 
                 <v-list-item-title class="text-h6 font-weight-bold">
@@ -61,6 +85,8 @@
                 <template v-slot:append>
                   <div class="hidden-xs mr-3">
                     {{ new Date(message.timestamp).toLocaleTimeString() }}
+                    <br />
+                    {{ message.protocol }}
                   </div>
                 </template>
               </v-list-item>
@@ -101,9 +127,10 @@
 <script setup lang="ts">
 import { ref, nextTick, Ref } from "vue";
 import { Message } from "@/types";
-import WebSocketChat from "@/components/WebSocketChat.vue";
-import PollingChat from "@/components/PollingChat.vue";
-import LongPollingChat from "@/components/LongPollingChat.vue";
+import WebSocketChat from "./WebSocketChat.vue";
+import PollingChat from "./PollingChat.vue";
+import LongPollingChat from "./LongPollingChat.vue";
+import StreamingChat from "./StreamingChat.vue";
 
 const messages = ref<Message[]>([]);
 const message = ref("");
@@ -112,15 +139,22 @@ const showAlert = ref(true);
 const messagebox = ref(null);
 const usernamebox = ref(null);
 const tab = ref("");
+const chatChosen = ref(false);
 
 const wsChatRef = ref(null) as Ref<typeof WebSocketChat | null>;
 const pollingChatRef = ref(null) as Ref<typeof PollingChat | null>;
 const longPollingChatRef = ref(null) as Ref<typeof LongPollingChat | null>;
+const streamingChatRef = ref(null) as Ref<typeof StreamingChat | null>;
 
 const chooseChat = async (chat: string) => {
   tab.value = chat;
+  chatChosen.value = true;
   await nextTick();
-  usernamebox.value?.focus();
+  if (username.value.length === 0) {
+    usernamebox.value?.focus();
+  } else {
+    messagebox.value?.focus();
+  }
 };
 
 // eslint-disable-next-line no-unused-vars
@@ -134,12 +168,18 @@ const updateMessages = async (newMessages: Message[]) => {
 };
 
 const appendMessages = async (newMessages: Message[]) => {
+  // add protocol to each message
+  newMessages.forEach((msg) => (msg.protocol = tab.value));
+
   messages.value = [...messages.value, ...newMessages];
-  await nextTick();
-  window.scrollTo({
-    top: document.body.scrollHeight,
-    behavior: "smooth",
-  });
+
+  if(newMessages.length > 0) {
+    await nextTick();
+    window.scrollTo({
+      top: document.body.scrollHeight,
+      behavior: "smooth",
+    });
+  }
 };
 
 const isEmpty = (str: string) => str.trim().length === 0;
@@ -176,6 +216,9 @@ const sendMessage = async () => {
       break;
     case "LongPolling":
       await longPollingChatRef.value?.sendMessage(msg);
+      break;
+    case "Streaming":
+      await streamingChatRef.value?.sendMessage(msg);
       break;
   }
 
