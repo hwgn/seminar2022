@@ -1,16 +1,11 @@
 <template>
-  <!-- streaming error -->
-  <v-alert v-model="httpError" type="error" elevation="2">
-    <td v-html="httpErrorMessage" />
-  </v-alert>
+  <!-- we have no html content -->
+  <p />
 </template>
 
 <script setup lang="ts">
-import { ref, defineExpose, defineEmits } from "vue";
+import { defineExpose, defineEmits } from "vue";
 import { Message } from "@/types";
-
-const httpError = ref(false);
-const httpErrorMessage = ref<string>("");
 
 const emit = defineEmits(["appendMessages"]);
 
@@ -33,17 +28,18 @@ const fetchMessages = async () => {
     },
     body: new Date().toISOString(),
   });
-  if (!response.ok || !response.body) {
-    httpError.value = true;
-    httpErrorMessage.value = await response.text();
+  if(!response.ok || !response.body) {
+    console.log("Error fetching messages");
+    return;
   }
-  const reader = response.body?.getReader() || undefined;
+
+  const reader = response.body.getReader();
 
   const read = async () => {
-    const { done, value } = await reader?.read() || { done: true, value: undefined };
-    if (done) {
+    const { done, value } = await reader.read();
+    if (done) 
       return;
-    }
+    
     const messages = new TextDecoder("utf-8").decode(value);
     emit("appendMessages", JSON.parse(messages));
     read();

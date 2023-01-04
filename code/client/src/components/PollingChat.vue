@@ -1,16 +1,12 @@
 <template>
-  <!-- polling error -->
-  <v-alert v-model="httpError" type="error" elevation="2">
-    <td v-html="httpErrorMessage" />
-  </v-alert>
+  <!-- we have no html content -->
+  <p />
 </template>
 
 <script setup lang="ts">
-import { ref, onUnmounted, defineExpose, defineEmits } from "vue";
+import { defineExpose, defineEmits } from "vue";
 import { Message } from "@/types";
 
-const httpError = ref(false);
-const httpErrorMessage = ref<string>("");
 let lastMessageTimestamp = new Date().toISOString();
 
 const emit = defineEmits(["appendMessages"]);
@@ -22,37 +18,30 @@ const sendMessage = async (msg: Message) => {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(msg),
-  });
+  }); 
 };
 
-// fetch messages from server every 2 seconds
 const fetchMessages = async () => {
-  const nextTimestamp = new Date().toISOString();
   const response = await fetch("http://localhost:8082/polling", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: lastMessageTimestamp,
+    body: lastMessageTimestamp, // send the last message timestamp to the server
   });
+
   if (response.ok) {
-    if (httpError.value) {
-      httpError.value = false;
-    }
-    
-    emit("appendMessages", await response.json());
-    lastMessageTimestamp = nextTimestamp;
-  } else {
-    httpError.value = true;
-    httpErrorMessage.value = await response.text();
+    const newMessages = await response.json();
+    emit("appendMessages", newMessages); // append the new messages to the chat
+
+    // update the last message timestamp to the timestamp of the last message, if there are any
+    if (newMessages.length > 0)
+      lastMessageTimestamp = newMessages[newMessages.length - 1].timestamp;
   }
 };
 
-const interval = setInterval(fetchMessages, 2000);
-
-onUnmounted(() => {
-  clearInterval(interval);
-});
+// we fetch new messages every 2 seconds, regardless of how long the previous request took
+setInterval(fetchMessages, 2000);
 
 defineExpose({
   sendMessage,

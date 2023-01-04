@@ -1,37 +1,11 @@
 import * as WebSocket from "ws";
 import * as http from "http";
 import { Message } from "./types";
-import { randomUUID } from "crypto";
 
-// websocket server
-
-const server = http.createServer();
-const wss = new WebSocket.Server({ server });
-
-wss.on("connection", (ws: WebSocket) => {
-  console.log("[WEBSOCKET] Client connected");
-  ws.on("message", (message: Message) => {
-    console.log(
-      "[WEBSOCKET] " +
-        getTimeString(message.timestamp) +
-        " | " +
-        message.sender +
-        ": " +
-        message.content
-    );
-    wss.clients.forEach((client: WebSocket) => {
-      if (client !== ws && client.readyState === WebSocket.OPEN) {
-        client.send(message);
-      }
-    });
-  });
-});
-
-wss.on("close", () => console.log("[WEBSOCKET] Client disconnected"));
-
-server.listen(8081, () => console.log(`Websocket server started on port 8081`));
+// helpers
 
 const filterMessages = (timestamp: string, messages: Message[]) => {
+  if (!timestamp) return messages; // return all messages if no timestamp was sent
   return messages.filter(
     (message) => Date.parse(message.timestamp) > Date.parse(timestamp)
   );
@@ -42,27 +16,29 @@ const getTimeString = (dateString: string) => {
   return date.getHours() + ":" + date.getMinutes();
 };
 
+const logMessage = (message: Message, type: string) => {
+  console.log(
+    `[${type}] ${getTimeString(message.timestamp)} | ` +
+      `${message.sender}: ${message.content.replace(/\n+/, " ")}`
+  );
+};
+
 // http/polling server
 
 const lastPollingMessages: Message[] = [];
 
 const pollingServer = http.createServer((req, res) => {
   if (req.url === "/polling") {
-    let body = "";
+    // we get a Buffer that contains our timestamp
+    let timestamp = "";
     req.on("data", (chunk) => {
-      body += chunk; // convert Buffer to string
+      timestamp += chunk; // convert Buffer to string
     });
     req.on("end", () => {
-      const timestamp: string = body;
-      const messages = body
-        ? filterMessages(timestamp, lastPollingMessages)
-        : lastPollingMessages; // return all messages if no timestamp was sent
       res.setHeader("Content-Type", "application/json");
-      if (messages.length > 0) {
-        res.end(JSON.stringify(messages)); // return messages as json
-      } else {
-        res.end(JSON.stringify([])); // return empty array
-      }
+      res.end(
+        JSON.stringify([...filterMessages(timestamp, lastPollingMessages)])
+      ); // return messages as json
     });
   } else if (req.url === "/polling/send") {
     let body = "";
@@ -71,18 +47,8 @@ const pollingServer = http.createServer((req, res) => {
     });
     req.on("end", () => {
       const message: Message = JSON.parse(body);
-      console.log(
-        "[POLLING] " +
-          getTimeString(message.timestamp) +
-          " | " +
-          message.sender +
-          ": " +
-          message.content
-      );
+      logMessage(message, "POLLING");
       lastPollingMessages.push(message);
-      if (lastPollingMessages.length > 100) {
-        lastPollingMessages.shift();
-      }
       res.end(); // send 200 OK
     });
   } else {
@@ -101,23 +67,19 @@ const longPollingClients = new Set() as Set<http.ServerResponse>;
 
 const longPollingServer = http.createServer((req, res) => {
   if (req.url === "/long-polling") {
-    let body = "";
+    let timestamp = "";
     req.on("data", (chunk) => {
-      body += chunk; // convert Buffer to string
+      timestamp += chunk; // convert Buffer to string
     });
     req.on("end", () => {
-      const timestamp: string = body || new Date().toISOString(); // we need the timestamp later to wait for new messages, so we use the current timestamp if no timestamp was sent
-      const messages = body
-        ? filterMessages(timestamp, lastLongPollingMessages)
-        : lastLongPollingMessages; // return all messages if no timestamp was sent
+      const messages = [...filterMessages(timestamp, lastLongPollingMessages)];
 
       if (messages.length > 0) {
         res.setHeader("Content-Type", "application/json");
-        res.end(JSON.stringify(messages)); // return messages as json
+        res.end(JSON.stringify(messages));
+      } else {
+        longPollingClients.add(res); // register client
       }
-
-      // register client
-      longPollingClients.add(res);
     });
   } else if (req.url === "/long-polling/send") {
     let body = "";
@@ -126,33 +88,22 @@ const longPollingServer = http.createServer((req, res) => {
     });
     req.on("end", () => {
       const message: Message = JSON.parse(body);
-      console.log(
-        "[LONG POLLING] " +
-          getTimeString(message.timestamp) +
-          " | " +
-          message.sender +
-          ": " +
-          message.content
-      );
+      logMessage(message, "LONG POLLING");
       lastLongPollingMessages.push(message);
-      if (lastLongPollingMessages.length > 100) {
-        lastLongPollingMessages.shift();
-      }
       res.end(); // send 200 OK
 
-      try {
-        // send message to all clients
-        longPollingClients.forEach((client) => {
+      // send message to all clients
+      longPollingClients.forEach((client) => {
+        try {
           // reserve client by removing it from the set immediately
           longPollingClients.delete(client);
 
           client.setHeader("Content-Type", "application/json");
           client.end(JSON.stringify([message]));
-        });
-      } catch (_) {
-        // Error while sending long polling message. This was likely due to a connection already having been used to send a previous message.
-        // We can ignore this error, because the client will send a new request with an appropriate timestamp - the new message will be sent then.
-      }
+        } catch (_) {
+          // ignore errors
+        }
+      });
     });
   } else {
     res.end(); // ignore other requests
@@ -170,17 +121,14 @@ const streamingClients = new Set() as Set<http.ServerResponse>;
 
 const streamingServer = http.createServer((req, res) => {
   if (req.url === "/streaming") {
-    let body = "";
+    let timestamp = "";
     req.on("data", (chunk) => {
-      body += chunk; // convert Buffer to string
+      timestamp += chunk; // convert Buffer to string
     });
     req.on("end", () => {
-      let timestamp: string = body || new Date().toISOString(); // we need the timestamp later to wait for new messages, so we use the current timestamp if no timestamp was sent
-      const messages = body
-        ? filterMessages(timestamp, lastStreamingMessages)
-        : lastStreamingMessages; // return all messages if no timestamp was sent
+      const messages = [...filterMessages(timestamp, lastLongPollingMessages)];
 
-      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Content-Type", "application/json");
 
       // return all avaialble messages, but keep the connection open
       if (messages.length > 0) {
@@ -197,18 +145,8 @@ const streamingServer = http.createServer((req, res) => {
     });
     req.on("end", () => {
       const message: Message = JSON.parse(body);
-      console.log(
-        "[STREAMING] " +
-          getTimeString(message.timestamp) +
-          " | " +
-          message.sender +
-          ": " +
-          message.content
-      );
+      logMessage(message, "STREAMING");
       lastStreamingMessages.push(message);
-      if (lastStreamingMessages.length > 100) {
-        lastStreamingMessages.shift();
-      }
       res.end(); // send 200 OK
 
       // send message to all clients
@@ -225,10 +163,28 @@ streamingServer.listen(8084, () =>
   console.log(`Streaming server started on port 8084`)
 );
 
+// websocket server
+
+const websocketServer = http.createServer();
+const wss = new WebSocket.Server({ server: websocketServer });
+
+wss.on("connection", (ws: WebSocket) => {
+  ws.on("message", (message: Message) => {
+    wss.clients.forEach((client: WebSocket) => {
+      if (client.readyState === WebSocket.OPEN) client.send(message);
+    });
+  });
+});
+
+websocketServer.listen(8081, () =>
+  console.log(`Websocket server started on port 8081`)
+);
+
 // server push server
 
+/*
 const lastServerPushMessages: Message[] = [];
-const clients: Map<string, http.ServerResponse> = new Map();
+const serverPushClients = new Set() as Set<http.ServerResponse>;
 
 const serverPushServer = http.createServer((req, res) => {
   if (req.url === "/server-push") {
@@ -238,12 +194,8 @@ const serverPushServer = http.createServer((req, res) => {
     });
     req.on("end", () => {
       // register client
-      const clientId = randomUUID();
-      clients.set(clientId, res);
-
-      // send client id to client
-      res.setHeader("Content-Type", "text/plain");
-      res.end(clientId);
+      serverPushClients.add(res);
+      res.end();
     });
   } else if (req.url === "/server-push/send") {
     let body = "";
@@ -252,21 +204,11 @@ const serverPushServer = http.createServer((req, res) => {
     });
     req.on("end", () => {
       const message: Message = JSON.parse(body);
-      console.log(
-        "[SERVER PUSH] " +
-          getTimeString(message.timestamp) +
-          " | " +
-          message.sender +
-          ": " +
-          message.content
-      );
+      logMessage(message, "SERVER PUSH");
       lastServerPushMessages.push(message);
-      if (lastServerPushMessages.length > 100) {
-        lastServerPushMessages.shift();
-      }
 
       // send message to all clients
-      clients.forEach((res) => {
+      serverPushClients.forEach((res) => {
         res.setHeader("Content-Type", "application/json");
         res.write(JSON.stringify(message));
       });
@@ -278,6 +220,8 @@ const serverPushServer = http.createServer((req, res) => {
   }
 });
 
-// serverPushServer.listen(8085, () =>
-//   console.log(`Server push server started on port 8085`)
-// );
+serverPushServer.listen(8085, () =>
+  console.log(`Server push server started on port 8085`)
+);
+
+*/

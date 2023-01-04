@@ -1,7 +1,8 @@
 \documentclass[sigplan, screen]{acmart}
 \usepackage[german]{babel}
 \usepackage{fancyhdr}
-\usepackage{listings}
+\usepackage{listings, lstautogobble}
+\usepackage{tablefootnote}
 
 \AtBeginDocument{%
   \providecommand\BibTeX{{%
@@ -39,10 +40,24 @@
   showspaces=false,                
   showstringspaces=false,
   showtabs=false,                  
-  tabsize=2
+  tabsize=2,
+  autogobble=true,
+  frame=single,
+  columns=flexible
 }
 
 \lstset{style=mystyle}
+
+\makeatletter
+\newlength{\singlespace}
+\newlength{\gobble}
+\newlength{\numbersep}
+% The width of a single space.
+\settowidth{\singlespace}{\lst@basicstyle \ }
+\setlength{\singlespace}{-\singlespace}
+
+\lst@Key{firstlineandnumber}\relax{\def\lst@firstline{#1\relax}\def\lst@firstnumber{#1\relax}}
+\makeatother
 
 \setcopyright{none}
 \settopmatter{printacmref=false}
@@ -71,7 +86,7 @@
 \begin{abstract}
   Die Kommunikation zwischen Webbrowser und Server wird klassischerweise durch den Client (in der Regel ein Webbrowser) initiiert.
   Dieser fragt den Inhalt einer Website an, und kann später weitere Inhalte laden oder Daten übermitteln.
-  Der Server kann aber keine Daten nachträglich an den Client senden, wenn dieser diese nicht aktiv anfragt.
+  Gemäß der HTTP-Spezifikation kann der Server aber keine Daten nachträglich an den Client senden, wenn dieser diese nicht aktiv anfragt.
   In diesem Artikel werden verschiedene Möglichkeiten zur fortlaufenden Kommunikation zwischen Client und Server vorgestellt und analysiert.
   Dabei werden die Vor- und Nachteile der einzelnen Methoden aufgezeigt.
 \end{abstract}
@@ -98,19 +113,30 @@
 
 \section{Einleitung}
 
-Gilt es, eine Website mit bidirektionaler bzw. asynchroner Kommunikation (z. B. vom Server bereitgestellten Aktualisierungen) zu realisieren,
-so muss eine Auswahl zwischen verschiedenen Ansätzen gewählt werden.
-Ein solcher Fall kann eine Chatanwendung sein, in welcher der Server von einem Client erhaltene Nachrichten an andere Clients weitersendet.
-Ein weiteres Beispiel wäre eine rechenintensive Anwendung,
-in der eine Berechnung nach einiger Zeit erfolgt und der Server das Ergebnis an den Client melden soll.
-Da der Server unter HTTP nicht ohne weiteres eine Nachricht an einen Client senden kann, muss dieser die Nachricht anfordern --
-diese simple Art des Nachrichtenempfangs nennt man \emph{Polling}, also die wiederholte Abfrage nach neuen Nachrichten.
-Neben diesem Ansatz gibt es \emph{WebSockets}, welche eine TCP/UDP-ähnliche Kommunikation im Web ermöglichen.
+Moderne Webapplikationen sind in der Regel auf eine bidirektionale Kommunikation zwischen Client und Server angewiesen,
+um zum Beispiel Benachrichtigungen oder Echtzeitdaten anzuzeigen.
+Webseiten basieren in der Regel auf dem HTTP-Protokoll, nach welchem alle Anfragen vom Client initiiert werden müssen.
+Um also eine asynchrone Kommunikation zwischen Client und Server zu ermöglichen, muss entschieden werden, wie mit dieser Einschränkung umgegangen werden soll.
+Dieser Artikel beschäftigt sich mit verschiedenen Ansätzen zur asynchronen Kommunikation zwischen Client und Server.
+
+% hier fehlt:
+% - grund für die arbeit
+% - was wird behandelt, was nicht
+% - wie ist die methodik, was wird gemacht, was nicht
+
+% Gilt es, eine Website mit bidirektionaler bzw. asynchroner Kommunikation zu realisieren,
+% so muss eine Auswahl zwischen verschiedenen Ansätzen gewählt werden,
+% Ein solcher Fall kann eine Chatanwendung sein, in welcher der Server von einem Client erhaltene Nachrichten an andere Clients weitersendet.
+% Ein weiteres Beispiel wäre eine rechenintensive Anwendung,
+% in der eine Berechnung nach einiger Zeit erfolgt und der Server das Ergebnis an den Client melden soll.
+% Da der Server unter HTTP nicht ohne weiteres eine Nachricht an einen Client senden kann, muss dieser die Nachricht anfordern --
+% diese simple Art des Nachrichtenempfangs nennt man \emph{Polling}, also die wiederholte Abfrage nach neuen Nachrichten.
+% Neben diesem Ansatz gibt es \emph{WebSockets}, welche eine TCP/UDP-ähnliche Kommunikation im Web ermöglichen.
 
 \section{Vorstellung der Kommunikationsvarianten}
 
-Zunächst werden die Kommunikationsvarianten in ihrer Funktionsweise erklärt und vorgestellt.
-In späteren Kapiteln wird ebenfalls auf deren Implementierung sowie auf Frameworks eingegangen.
+Es gibt eine Reihe von Ansätzen, wie eine bidirektionale Kommunikation zwischen Client und Server im Web realisiert werden kann.
+In diesem Abschnitt werden die wichtigsten Ansätze chronologisch vorgestellt und kurz erläutert.
 
 \subsection{Klassisches Polling}
 
@@ -120,7 +146,8 @@ Dieser wartet auf Anfragen und beantwortet diese \cite[Abs. 1.3]{fielding_http_2
 
 Für das Vorhaben sind GET-Requests besonders relevant, also klassische Abfragen von Inhalten mittels HTTP.
 Polling, in diesem Anwendungsfall wohl am besten übersetzt mit \emph{zyklische Absuche} oder \emph{Sendeaufruf},
-beschreibt in der Webentwicklung das regelmäßige Abrufen (in einem Intervall $\Delta$) von neuen Inhalten.
+beschreibt in der Webentwicklung das regelmäßige Abrufen (in einem Intervall $\Delta t$) von neuen Inhalten.
+Abhängig von der Implementierung gilt das Intervall entweder ab dem Zeitpunkt des letzten Abrufs oder ab dem Zeitpunkt der letzten Antwort des Servers.
 Gibt es Nachrichten, die der Server bereitstellen möchte, beantwortet dieser die Anfrage mit den neuen Inhalten --
 andernfalls wird der Antwortkörper leer sein.
 
@@ -128,7 +155,8 @@ andernfalls wird der Antwortkörper leer sein.
   \centering
   \includegraphics[width=.45\textwidth]{assets/msc/polling.png}
   \caption[Nachrichtenempfang bei Polling-Kommunikation]{Beispiel von Nachrichtenempfang bei einer klassischen Polling-Kommunikation.
-    Der Client sendet regelmäßig eine Anfrage an den Server, welche entweder mit leerer Antwort oder mit neuen Inhalten beantwortet wird.}
+    Der Client sendet regelmäßig eine Anfrage an den Server, welche entweder mit leerer Antwort oder mit neuen Inhalten beantwortet wird.
+    Die Länge der Zeitspanne $\Delta t$ zwischen zwei Polling-Anfragen ist implementierungsabhängig.}
   \label{fig:polling}
 \end{figure}
 
@@ -137,7 +165,7 @@ andernfalls wird der Antwortkörper leer sein.
   \includegraphics[width=.45\textwidth]{assets/msc/polling-send.png}
   \caption[Nachrichtenversand bei Polling-Kommunikation]{Beispiel von Nachrichtenversand bei einer klassischen Polling-Kommunikation.
     Der Client sendet eine Nachricht an den Server, welche daraufhin mittels polling abgerufen werden kann.}
-    \label{fig:polling_send}
+  \label{fig:polling_send}
 \end{figure}
 
 Das Hauptproblem mit Polling ist der entstehende Header Overhead, der für den gesamten Zeitraum in den regelmäßigen Abfragen besteht.
@@ -164,8 +192,8 @@ Dabei wird die Antwort auf eine HTTP-Anfrage zurückgehalten, bis der Server ein
   \centering
   \includegraphics[width=.45\textwidth]{assets/msc/long-polling.png}
   \caption[Nachrichtenempfang bei Long Polling]{Beispiel von Nachrichtenempfang bei Long Polling.
-  Der Server beantwortet die Anfrage des Clients erst, wenn er eine Nachricht hat, die er übermitteln möchte.
-  Der Nachrichtenversand verläuft analog zu Polling.}
+    Der Server beantwortet die Anfrage des Clients erst, wenn er eine Nachricht hat, die er übermitteln möchte.
+    Der Nachrichtenversand verläuft analog zu Polling.}
   \label{fig:long_polling}
 \end{figure}
 
@@ -185,9 +213,9 @@ der Server terminiert nie die Antwort auf die erste Anfrage \cite[Abs. 3]{saint-
   \centering
   \includegraphics[width=.45\textwidth]{assets/msc/streaming.png}
   \caption[Nachrichtenempfang bei Streaming]{Beispiel von Nachrichtenempfang bei Streaming.
-  Der Client initiiert den Streaming-Prozess durch eine einmalige Anfrage.
-  Daraufhin sendet der Server Teilantworten an den Client, sobald neue Nachrichten verfügbar sind.
-  Der Nachrichtenversand verläuft analog zu Polling.}
+    Der Client initiiert den Streaming-Prozess durch eine einmalige Anfrage.
+    Daraufhin sendet der Server Teilantworten an den Client, sobald neue Nachrichten verfügbar sind.
+    Der Nachrichtenversand verläuft analog zu Polling.}
   \label{fig:streaming}
 \end{figure}
 
@@ -221,12 +249,13 @@ HTTP wird dann lediglich für die initialen Handshakes verwendet -- danach nicht
   \centering
   \includegraphics[width=.45\textwidth]{assets/msc/websockets.png}
   \caption[Nachrichtenaustausch bei WebSockets]{Beispiel von Nachrichtenaustausch bei WebSockets.
-  Nach dem Handshake wird eine TCP-Verbindung zwischen Client und Server aufgebaut.
-  Von nun an können Nachrichten in beide Richtungen ausgetauscht werden.}
+    Nach dem Handshake wird eine TCP-Verbindung zwischen Client und Server aufgebaut.
+    Von nun an können Nachrichten in beide Richtungen ausgetauscht werden.}
   \label{fig:websockets}
 \end{figure}
 
 \subsubsection{Spezifikation}
+\label{sec:websocket-spec}
 Um eine Verbindung über einen WebSocker aufzubauen, wird zunächst vom Client aus eine HTTP-Anfrage gesendet.
 Gemäß der Spezifikation muss es sich hierbei um eine GET-Request an den Pfad, auf dem der WebSocket hinterlegt ist, handeln.
 
@@ -249,23 +278,22 @@ Dabei wird jeweils auf die Client- und Serverseitige Implementierung eingegangen
 
 Die Realisierung erfolgt in TypeScript, wobei die Serverseitige Implementierung auf Node.js basiert.
 Der Client benutzt das Vue.js-Framework mit Vuetify, um die Darstellung zu vereinfachen.
-Implementierungen in anderen Frameworks erfolgen analog.
+Implementierungen in anderen Frontend-Frameworks erfolgen analog.
+Es wird nicht auf die Darstellung der Nachrichten oder des Chats eingegangen, da dies nicht relevant für die Implementierung ist.
+Entsprechende Codeabschnitte sind daher ausgelassen.
 
+Die vollständige Implementierung der Frontendkomponenten ist im Repository im Verzeichnis \cite[\\\texttt{code/client/src/components/}]{wagner_seminar2022_2022} zu finden.
+Der gesamte Code für alle Serverkomponenten befindet sich in \cite[\\\texttt{code/server/chatserver.ts}]{wagner_seminar2022_2022}.
 
 \subsection{Implementierung von Polling}
 
-Für die Implementierung von Polling verwaltet der Server eine Liste der letzten 100 Nachrichten.
+Für alle Arten von Polling verwaltet der Server eine Liste aller bisher empfangenen Nachrichten.
 Neue von einem Client übermittelte Nachrichten werden mit Autor, Zeitstempel und Text in diese Liste eingefügt.
-Fragt ein Client die Liste ab, so erhält er die letzten 100 Nachrichten zurück.
-Der Client übermittelt dabei den Zeitstempel der letzten Nachricht, die er erhalten hat.
-So kann der Server nur die Nachrichten zurückgeben, die nach diesem Zeitstempel eingegangen sind.
 
-Es wird nicht auf die Darstellung der Nachrichten oder des Chats eingegangen, da dies nicht relevant für die Implementierung ist.
-Entsprechende Codeabschnitte sind daher ausgelassen.
-Die vollständige Implementierung ist im Repository \cite[\texttt{code/client/src/components/PollingChat.vue}]{wagner_seminar2022_2022} zu finden.
+Im Falle des klassischen Polling wird der Client alle paar Sekunden eine Anfrage an den Server senden, um neue Nachrichten abzufragen.
+Dementsprechend muss der Server seine Nachrichtenliste nach für den Client neuen Nachrichten filtern und diese zurückgeben.
 
-
-\begin{lstlisting}[caption={Beispielhafte Nachricht}, label={lst:polling-json}, numbers=none]
+\begin{lstlisting}[caption={Beispielhafte Nachricht}, label={lst:message-json}, numbers=none]
 {
   content: "Hello World!",
   sender: "Alice",
@@ -275,91 +303,243 @@ Die vollständige Implementierung ist im Repository \cite[\texttt{code/client/sr
 
 \subsubsection{Polling Server}
 
+Der Server besteht aus einer Instanz von \texttt{http.Server}, welche die HTTP-Anfragen \texttt{/polling} und \texttt{/polling/send} verarbeitet.
+Zudem verwaltet er ein Array mit allen Nachrichten, die bisher gesendet wurden.
 
+Bei einer Anfrage an \texttt{/polling} wird mit einem Zeitstempel gearbeitet,
+sodass der Server nur die Nachrichten zurückgibt, die nach diesem Zeitstempel eingegangen sind.
+
+\lstinputlisting[caption={Polling Server: Nachrichten abfragen}, label={lst:polling-server-polling}, firstlineandnumber=31, lastline=42]{../code/server/chatserver.ts}
+
+Im Falle einer Anfrage an \texttt{/polling/send} wird die Nachricht in das Array eingefügt und der Client mit dem Statuscode 200 \emph{OK} bestätigt.
+
+\lstinputlisting[caption={Polling Server: Nachrichten abfragen}, label={lst:polling-server-send-message}, firstlineandnumber=43, lastline=53]{../code/server/chatserver.ts}
 
 \subsubsection{Polling Client}
 
 Der Client besteht aus der Komponente \texttt{PollingChat.vue}, welche die Funktionen zum Senden und Empfangen von Nachrichten enthält.
 Die Darstellung, sowie die Speicherung von Nachrichten und Nutzdaten erfolgt in der Komponente \texttt{ChatPage.vue} (vgl. jeweils \cite[\texttt{code/client/src/components/}]{wagner_seminar2022_2022}).
 
-\begin{lstlisting}[caption={Polling Client: Nachricht senden}, label={lst:polling-server-send-message}, firstnumber=18]
-const sendMessage = async (msg: Message) => {
-  await fetch("http://localhost:8082/polling/send", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(msg),
-  });
-};
-\end{lstlisting}
-
 Um eine Nachricht zu versenden, wird lediglich eine HTTP POST-Anfrage an die URL \texttt{/polling/send} gesendet.
 Die Nachricht wird dabei als JSON-Objekt in der Anfrage übermittelt.
 
-\begin{lstlisting}[caption={Polling Client: Nachrichten abfragen}, label={lst:polling-server-get-messages}, firstnumber=29]
-const fetchMessages = async () => {
-  const nextTimestamp = new Date().toISOString();
-  const response = await fetch("http://localhost:8082/polling", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: lastMessageTimestamp,
-  });
-  if (response.ok) {
-    if (httpError.value) {
-      httpError.value = false;
-    }
-    
-    emit("appendMessages", await response.json());
-    lastMessageTimestamp = nextTimestamp;
-  } else {
-    httpError.value = true;
-    httpErrorMessage.value = await response.text();
-  }
-};
-
-const interval = setInterval(fetchMessages, 2000);
-\end{lstlisting}
+\lstinputlisting[caption={Polling Client: Nachrichten abfragen}, label={lst:polling-client-send-messages}, firstlineandnumber=14, lastline=22]{../code/client/src/components/PollingChat.vue}
 
 Mittels einer HTTP POST-Anfrage an die URL \texttt{/polling} werden die Nachrichten abgefragt.
-Die Anfrage enthält dabei den Zeitstempel der letzten Nachricht, die der Client erhalten hat, als string.
+Die Anfrage enthält dabei den Zeitstempel der letzten Nachricht, die der Client erhalten hat, als String.
 Der Server antwortet mit einer Liste von Nachrichten, die nach diesem Zeitstempel eingegangen sind.
 Diese werden anschließend an die Komponente \texttt{ChatPage.vue} mittels des Events \texttt{appendMessages} übermittelt.
 
-Um die Nachrichten regelmäßig abzufragen, wird ein Interval gesetzt, welches alle zwei Sekunden die Funktion \texttt{fetchMessages} aufruft.
-Dieses Interval wird bei der Initialisierung der Komponente gesetzt und bei der Entfernung der Komponente wieder gelöscht.
+Um die Nachrichten regelmäßig abzufragen, wird ein Intervall gesetzt, welches alle zwei Sekunden die Funktion \texttt{fetchMessages} aufruft.
+Dieses Intervall wird bei der Initialisierung der Komponente gesetzt und bei der Entfernung der Komponente wieder gelöscht.
 
-
+\lstinputlisting[caption={Polling Client: Nachrichten abfragen}, label={lst:polling-client-get-messages}, firstlineandnumber=24, lastline=44]{../code/client/src/components/PollingChat.vue}
 
 \subsection{Implementierung von Long Polling}
 
-\dots
+Die Implementierung von Long Polling ist sehr ähnlich zu der von Polling.
+Die einzige Änderung ist, dass der Server die Anfrage nicht sofort beendet, sondern die Verbindung offen hält, bis eine neue Nachricht eingegangen ist.
+Dazu wird sowohl der Client als auch der Server angepasst.
+
+\subsubsection{Long Polling Server}
+
+Der Server verwaltet nun eine Menge von offenen Verbindungen.
+Geht eine Anfrage ein, wird diese entweder mit neuen Nachrichten beantwortet, oder die Verbindung wird in die Menge der offenen Verbindungen aufgenommen.
+
+\lstinputlisting[caption={Long Polling Server: Nachrichten abfragen}, label={lst:long-polling-server-get-messages}, firstlineandnumber=77, lastline=82]{../code/server/chatserver.ts}
+
+Geht eine neue Nachricht ein, wird diese an alle bis dahin erhaltenen offenen Verbindungen gesendet.
+
+\lstinputlisting[caption={Long Polling Server: Nachrichten versenden}, label={lst:long-polling-server-send-messages}, firstlineandnumber=90, lastline=106]{../code/server/chatserver.ts}
+
+\subsubsection{Long Polling Client}
+
+Der Client ändert sich ebenfalls nur minimal.
+Das Versenden von Nachrichten bleibt unverändert, siehe \autoref{lst:polling-client-send-messages}.
+
+\lstinputlisting[caption={Long Polling Client: Nachrichten abfragen}, label={lst:long-polling-client-get-messages}, firstlineandnumber=25, lastline=41]{../code/client/src/components/LongPollingChat.vue}
+
+\subsection{Implementierung von Streaming}
+
+Die Implementierung von Streaming hat wieder große Ähnlichkeiten mit den vorherigen Implementierungen.
+
+\subsubsection{Streaming Server}
+
+Wie bei Long Polling wird auch beim Streaming eine Menge von offenen Verbindungen verwaltet.
+Der Server schließt diese Verbindungen jedoch nicht mit der ersten eingehenden Nachricht, sondern lässt sie offen.
+
+\lstinputlisting[caption={Streaming Server: Nachrichten abfragen}, label={lst:streaming-server-get-messages}, firstlineandnumber=123, lastline=140]{../code/server/chatserver.ts}
+
+Geht eine neue Nachricht ein, wird diese an Verbindungen gesendet.
+
+\lstinputlisting[caption={Streaming Server: Nachrichten versenden}, label={lst:streaming-server-send-messages}, firstlineandnumber=141, lastline=156]{../code/server/chatserver.ts}
+
+\subsubsection{Streaming Client}
+
+Der Client ändert sich nur minimal.
+Das Versenden von Nachrichten bleibt unverändert, siehe \autoref{lst:polling-client-send-messages}.
+
+\lstinputlisting[caption={Streaming Client: Nachrichten abfragen}, label={lst:streaming-client-get-messages}, firstlineandnumber=23, lastline=49]{../code/client/src/components/StreamingChat.vue}
 
 \subsection{Implementierung von WebSockets}
 
-\subsubsection{WebSocket Client}
+Da WebSockets eine vollwertige bidirektionale Kommunikation zwischen Client und Server ermöglichen, ist die Implementierung sehr einfach.
 
 \subsubsection{WebSocket Server}
 
-\section{Vergleiche zwischen Kommunikationsvarianten}
+Der Server wird durch die Bibliothek \texttt{ws} unterstützt.
+Diese stellt eine Klasse \texttt{WebSocket.Server} bereit, welche die Verwaltung von offenen Verbindungen übernimmt.
+In dieser Implementierung erhält auch der Client, welcher die Nachricht versendet, eine Kopie der Nachricht.
 
+\lstinputlisting[caption={WebSocket Server}, label={lst:websocket-server}, firstlineandnumber=168, lastline=177]{../code/server/chatserver.ts}
+
+\subsubsection{WebSocket Client}
+
+Der Client erzeugt eine \\\texttt{WebSocket} Instanz, welche die Verbindung zum Server herstellt.
+Die Nachrichten werden über dessen Methode \texttt{send} versendet.
+Im Falle einer neuen Nachricht wird die Callback-Funktion \texttt{onmessage} aufgerufen.
+
+\lstinputlisting[caption={WebSocket Client}, label={lst:websocket-client}, firstlineandnumber=12, lastline=30]{../code/client/src/components/WebSocketChat.vue}
+
+\section{Vergleiche zwischen Kommunikationsvarianten}
 
 \subsection{Analyse der Implementierungen}
 
-Vor- und Nachteile
-Performance?
+Vergleichen wir zunächst die Implementierungen in Bezug auf Codezeilen.
+Dabei wird für den Client jeweils nur der Code innerhalb des \texttt{<script>} Tags betrachtet.
+Kommentar- und Leerzeilen werden nicht mitgezählt.
+Es ist zudem anzumerken, dass die Zeilenanzahl nicht ausschlaggebend für die Performance ist und lediglich einen groben Überblick über den Implementierungsaufwand geben soll.
 
-… Die Latenzen überschneiden sich mit Messungen getätigt im Rahmen eines Papers von Pimentel und Nickerson \cite{pimentel_communicating_2012}.
+\begin{table}[h]
+  \centering
+  \begin{tabular}{|l|l|l|l|l|}
+    \hline
+    \textbf{Kommunikationsart} & \textbf{Server} & \textbf{Client} & \textbf{Gesamt} \\ \hline
+    Polling                    & 30              & 31              & 58              \\
+    Long Polling               & 42              & 33              & 75              \\
+    Streaming                  & 35              & 37              & 72              \\
+    WebSocket                  & 11              & 23              & 34              \\ \hline
+  \end{tabular}
+  \caption[Codezeilen pro Implementierung]{Codezeilen pro Implementierung aus \cite{wagner_seminar2022_2022}}
+  \label{tab:code-lines}
+\end{table}
 
-\subsection{Generelle Feststellungen}
+Es ist zu erkennen, dass WebSockets wesentlich weniger Code benötigen, um das gleiche Ziel zu erreichen.
+Auch ist ersichtlich, dass die Implementierung von Polling im Vergleich zu Long Polling und Streaming einfacher ist.
 
-Notabel ist auch die Reduktion in Overhead, welcher bei klassischem Polling durch HTTP-Header entsteht.
-Üblicherweise sind HTTP-Header zwischen 200 und 2.000 Bytes groß \cite{noauthor_spdy_nodate}.
-Dies kann einen ernsthaften Effekt auf die Netzwerkbelastung haben, besonders wenn die Polling- oder Nachrichtenfrequenz hoch ist.
+\subsection{Analyse der Performance}
+
+Um die Performance der Implementierungen zu analysieren, werden zunächst Größen von Nachrichten, HTTP-Anfragen, Websocket-Verbindungen und Websocket-Nachrichten betrachtet.
+Dabei wird lediglich der HTTP-Overhead betrachtet, da der TCP/UDP-Overhead nicht von der Implementierung beeinflusst werden kann.
+In Tabelle \ref{tab:data-traffic-comparison} werden die übertragenen Bytemengen für die verschiedenen Implementierungen verglichen.
+Es folgt die Berechnung der dort angegebenen Werte.
+
+\begin{table*}[t]
+  \centering
+  \caption[Vergleich von übertragenen Datenmengen]{Vergleich von übertragenen Datenmengen der Implementierungen aus \cite{wagner_seminar2022_2022}}
+  \label{tab:data-traffic-comparison}
+  \begin{tabular}{|l|l|l|l|l|}
+    \hline
+    \textbf{Kommunikationsart} & \textbf{Initial} & \textbf{Regelmäßig} & \textbf{Overhead für Nachrichtenempfang} & \textbf{Nachrichtenversand} \\ \hline
+    Polling                    & 0 Bytes          & 771 Bytes           & 771 + $M$ Bytes                          & 714 + $m$ Bytes             \\
+    Long Polling               & 0 Bytes          & 0 Bytes             & 771 + $M$ Bytes                          & 714 + $m$ Bytes             \\
+    Streaming                  & 771 Bytes$^a$    & 0 Bytes             & $m$ Bytes                                & 714 + $m$ Bytes             \\
+    WebSocket                  & 722 Bytes        & 0 Bytes             & 26 + $m$ Bytes                           & 26 + $m$ Bytes              \\ \hline
+  \end{tabular}
+  \\\footnotesize{$^a$ Tatsächlich nur der Request-Teil einer Nachrichtenanfrage. Der Response-Teil wird bei der ersten eingehenden Nachricht gesendet.}
+\end{table*}
+
+\subsubsection{Größe einer \emph{Message} $m$}
+Die Größe einer Nachricht (wie in Listing \ref{lst:message-json} dargestellt) beträgt 65 (hier sind Timestamp und JSON-Syntax enthalten) + Name + Inhalt Bytes.
+Es wird in der Regel ein Array von Nachrichten $M$ übertragen, wodurch sich die Größe um zwei Bytes (für die eckigen Klammern) erhöht.
+
+\subsubsection{Größe einer Nachrichtenanfrage}
+Es handelt sich bei der Nachrichtenanfrage um eine HTTP-Anfrage vom Typ \texttt{POST} mit einem Payload, welches den Timestamp der letzten empfangenen Nachricht enthält.
+Die Größe der Request Header der Anfrage ist stark abhängig von vielen Faktoren wie Host, Pfad, User-Agent, etc., weshalb hier nur mit einem ungefähren Wert von 600 Bytes gerechnet werden kann.
+\footnote{Hier wurden die Zeichen von Request-Headern gezählt und gemittelt. Wird die Chat-Applikation auf localhost bereitgestellt und von einem Chrome-Browser abgerufen, beträgt der Request Header für eine Polling-Anfrage 588 Bytes.}
+Die Request-Payload ist bei Polling-Varianten ein Timestamp, welcher 24 Bytes benötigt.
+Damit kommen wir auf eine Gesamtgröße von 624 Bytes für den Request-Teil der Anfrage.
+
+Die Größe der Response ist abhängig von der Anzahl der Nachrichten, welche der Server an den Client sendet.
+Der Response Header ist in der Regel 145 Bytes groß.
+\footnote{Dieser Wert ist weniger variabel als der Request-Header, da hier lediglich der Status-Code, Datum und Content-Type neben ein paar HTTP-Basisdaten enthalten sind.}
+Ist die Antwort leer, so ist die Größe der Response-Payload 2 Bytes (für ein leeres Array).
+Damit kommen wir auf eine Gesamtgröße von 147 Bytes für den Response-Teil der Anfrage.
+
+Anfragen mit einer leeren Antwort haben eine Gesamtgröße von 771 Bytes.
+Anfragen mit einer Antwort, welche Nachrichten enthält, haben eine Gesamtgröße von 771 + $M$ Bytes.
+
+\subsubsection{Größe einer Nachrichtenübermittlung}
+Der Request Header bleibt gleich, da die Nachrichtenübermittlung ebenfalls über eine POST-Request erfolgt.
+Die Größe der Request-Payload ist 65 Bytes + Name + Inhalt Bytes.
+
+Die Response hat eine Größe von 114 Bytes – hier enthält der Response-Header nur den Status-Code und das Datum, da keine Payload übertragen wird.
+
+Damit kommen wir auf eine Gesamtgröße von 714 + $m$ Bytes für eine Nachrichtenübermittlung.
+
+
+\subsubsection{Größe eines Websocket-Verbindungsaufbaus}
+Für den Protokollwechsel versendet der Client eine HTTP-Anfrage vom Typ \texttt{GET} mit einem Request-Header, welcher den Wechsel zum WebSocket-Protokoll startet (vgl. hierzu Abschnitt \ref{sec:websocket-spec}).
+Auch hier gehen wir bei dem Request Header von einer durchschnittlichen Größe von 600 Bytes aus.
+Bei \texttt{GET} Requests ist die Request-Payload leer, sodass die Gesamtgröße des Request-Teils 600 Bytes beträgt.
+
+Die Response hat eine Größe von 122 Bytes – hier enthält der Response Header lediglich den Status-Code und die Ankündigung, dass der Protokollwechsel erfolgreich war.
+Die Response-Payload ist ebenfalls leer, sodass die Gesamtgröße des Response-Teils 122 Bytes beträgt.
+
+Der Aufbau einer Websocket-Verbindung hat somit eine Gesamtgröße von 722 Bytes.
+
+\subsubsection{Größe einer Websocket-Nachricht}
+Nachrichten, die über eine Websocket-Verbindung übertragen werden, haben keinen HTTP-Overhead.
+Die Größe einer Nachricht ist daher rein die Größe der \emph{Message} $m$ plus dem WebSocket-Overhead.
+Dieser gibt den Typ der WebSocket-Nachricht an und hat einen Overhead von 26 Bytes im Falle des Typs \texttt{message}.
+Dies gilt sowohl für gesendete als auch empfangene Nachrichten.
+
+Eine WebSocket-Nachricht hat somit eine Gesamtgröße von 26 + $m$ Bytes.
+
+\subsubsection{Schlussfolgerungen}
+
+Anhand der Tabelle \ref{tab:data-traffic-comparison} ist ersichtlich, dass die Menge an Datenverkehr abhängig von der Implementierung in unterschiedlichen Abschnitten der Kommunikation variiert.
+Es ist anzumerken, dass die Größe der Nachrichten großen Einfluss auf die Größe des Datenverkehrs darstellt.
+Polling ist die einzige Variante, die einen regelmäßigen Datenverkehr aufweist.
+Wie oft die Anfragen versendet werden, ist abhängig von der Implementierung bzw. dem gewählten Polling-Intervall $\Delta t$.
+
+Es lässt sich argumentieren, dass die die klassische Pollingvariante attraktiver als Long Polling und Streaming ist, wenn über einen kleinen Zeitraum viele Nachrichten übertragen werden sollen, da hier dann weniger Datenverkehr entsteht.
+Bei einer längeren Zeit, in der keine Nachrichten übertragen werden, ist die klassische Pollingvariante jedoch weniger attraktiv, da hier redundanter Datenverkehr entsteht.
+Auch könnte dieser Vorteil bei Long Polling und Streaming genutzt werden, indem die Anfragen nur alle $\Delta t$ Sekunden beantwortet werden.
+
+Für eine Echtzeitkommunikation kommen alle Kommunikationsvarianten bis auf Polling in Frage, da in allen anderen Fällen die Nachrichten sofort übertragen werden.
+Kommen viele Nachrichten schnell aufeinander, kann es passieren, dass Long Polling mehrere Nachrichten in einem Request versendet, da es immer auf eine neue Anfrage warten muss.
+In diesem Fall wäre Streaming die bessere Wahl, da hier die Nachrichten sofort übertragen werden können.
+
+Generell ist Streaming Long Polling vorzuziehen, da es den Overhead für Nachrichtenempfang reduziert indem es Redundanzen vermeidet.
+
+WebSockets sind bei weitem die an Overhead geringste Variante, da hier keine HTTP-Requests und -Responses benötigt werden.
+Da hier eine TCP-Verbindung aufgebaut wird, ist die Nachrichtenübertragung wesentlich effizienter.
+
+\subsection{Auswahl einer Kommunikationsvariante für die Chat-Anwendung}
+
+Für den Anwendungsfall der Chat-Anwendung ist die Wahl der Kommunikationsvariante abhängig von der Anzahl und Art der Nutzer sowie der Anzahl der Nachrichten, die übertragen werden sollen.
+WebSockets sind ein relativ neues Feature und werden von älteren Browsern nicht unterstützt.
+Bei den meisten Browsern wurden WebSockets in Versionen von etwa 2012 implementiert \cite{deveria_web_nodate}.
+Soll die Chat-Anwendung auf möglichst vielen Browsern laufen, ist es sinnvoll, eine Kommunikationsvariante zu wählen, die auch von älteren Browsern unterstützt wird.
+Dabei ist anzumerken, dass der geschätzte Anteil der Nutzer, die einen Browser mit WebSockets verwenden, auf etwa $98.3\%$ geschätzt wird \cite{deveria_web_nodate}, was eventuell eine vernachlässigbare Minderheit darstellt.
+
+Die Wahl fällt eindeutig auf WebSockets, da diese die geringste Latenz aufweisen \cite{pimentel_communicating_2012} und die Nachrichten mit minimalem Overhead übertragen werden können.
+
+\subsubsection{Auswahl mit Priorität auf Verfügbarkeit}
+
+Muss die Chat-Anwendung auf fast allen Browsern laufen, darf WebSockets nicht verwendet werden.
+Nun muss entschieden werden, welche der anderen Kommunikationsvarianten sinnvoll ist.
+
+Werden sehr viele Nachrichten von vielen Nutzern gleichzeitig versendet, kommen Streaming oder Polling in Frage:
+Streaming, da hier die Nachrichten mit minimalem Overhead sofort übertragen werden können; und 
+Polling, da Mengen von Nachrichten in regelmäßigen Abständen übertragen werden können.
+Hierbei ist anzumerken, dass Polling eine hohe Netzwerkbelastung verursachen kann, wenn viele Nutzer die Nachrichten gleichzeitig abfragen.
 So würden 1.000 Nutzer, die sekündlich Nachrichten anfragen, allein durch die Header etwa 6 Mbps an Netzwerkdurchsatz verursachen \cite{lubbers_html5_nodate}.
-Dieser Netzwerkdurchsatz entfällt durch Websockets.
+
+Dann kann je nach Priorität – Effizienz bei großen Mengen von Nachrichten oder Echtzeit – entschieden werden, welche Variante verwendet werden soll.
+Werden nur wenige Nachrichten oder in großen Abständen versendet, ist Streaming die beste Wahl, da es den geringsten Overhead mit Echtzeitübermittlung hat.
+
 
 \section{Vorstellung von Frameworks}
 
@@ -368,6 +548,7 @@ Es gibt Frameworks, die das Implementieren von asynchroner Kommunikation erleich
 \subsection{Socket.IO}
 
 Was ist das? Wie ist es besser oder schlechter für die Implementierung als Chat-App? Performance?
+Auch: Attraktiv für Verfügbarkeit, da es auf allen Browsern läuft. Weicht auf Polling aus, wenn WebSockets nicht unterstützt werden.
 
 \subsection{Faye}
 
@@ -378,8 +559,6 @@ Was ist das? Wie ist es besser oder schlechter für die Implementierung als Chat
 \bibliography{literature/literature}
 
 \listoffigures
+\listoftables
 
 \end{document}
-\endinput
-%%
-%% End of file `sample-sigplan.tex'.
