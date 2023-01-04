@@ -25,35 +25,28 @@ const logMessage = (message: Message, type: string) => {
 
 // http/polling server
 
-const lastPollingMessages: Message[] = [];
+const pollingMessages: Message[] = [];
 
 const pollingServer = http.createServer((req, res) => {
-  if (req.url === "/polling") {
-    // we get a Buffer that contains our timestamp
-    let timestamp = "";
-    req.on("data", (chunk) => {
-      timestamp += chunk; // convert Buffer to string
-    });
-    req.on("end", () => {
+  let body = "";
+  req.on("data", (chunk) => {
+    body += chunk;
+  });
+
+  req.on("end", () => {
+    if (req.url === "/polling") {
+      const timestamp = body;
       res.setHeader("Content-Type", "application/json");
-      res.end(
-        JSON.stringify([...filterMessages(timestamp, lastPollingMessages)])
-      ); // return messages as json
-    });
-  } else if (req.url === "/polling/send") {
-    let body = "";
-    req.on("data", (chunk) => {
-      body += chunk;
-    });
-    req.on("end", () => {
+      res.end(JSON.stringify([...filterMessages(timestamp, pollingMessages)])); // return messages as json
+    } else if (req.url === "/polling/send") {
       const message: Message = JSON.parse(body);
       logMessage(message, "POLLING");
-      lastPollingMessages.push(message);
+      pollingMessages.push(message);
       res.end(); // send 200 OK
-    });
-  } else {
-    res.end(); // ignore other requests
-  }
+    } else {
+      res.end(); // ignore other requests
+    }
+  });
 });
 
 pollingServer.listen(8082, () =>
@@ -62,17 +55,18 @@ pollingServer.listen(8082, () =>
 
 // long polling server
 
-const lastLongPollingMessages: Message[] = [];
+const longPollingMessages: Message[] = [];
 const longPollingClients = new Set() as Set<http.ServerResponse>;
 
 const longPollingServer = http.createServer((req, res) => {
-  if (req.url === "/long-polling") {
-    let timestamp = "";
-    req.on("data", (chunk) => {
-      timestamp += chunk; // convert Buffer to string
-    });
-    req.on("end", () => {
-      const messages = [...filterMessages(timestamp, lastLongPollingMessages)];
+  let body = "";
+  req.on("data", (chunk) => {
+    body += chunk; // convert Buffer to string
+  });
+  req.on("end", () => {
+    if (req.url === "/long-polling") {
+      const timestamp = body;
+      const messages = [...filterMessages(timestamp, longPollingMessages)];
 
       if (messages.length > 0) {
         res.setHeader("Content-Type", "application/json");
@@ -80,16 +74,10 @@ const longPollingServer = http.createServer((req, res) => {
       } else {
         longPollingClients.add(res); // register client
       }
-    });
-  } else if (req.url === "/long-polling/send") {
-    let body = "";
-    req.on("data", (chunk) => {
-      body += chunk;
-    });
-    req.on("end", () => {
+    } else if (req.url === "/long-polling/send") {
       const message: Message = JSON.parse(body);
       logMessage(message, "LONG POLLING");
-      lastLongPollingMessages.push(message);
+      longPollingMessages.push(message);
       res.end(); // send 200 OK
 
       // send message to all clients
@@ -104,10 +92,10 @@ const longPollingServer = http.createServer((req, res) => {
           // ignore errors
         }
       });
-    });
-  } else {
-    res.end(); // ignore other requests
-  }
+    } else {
+      res.end(); // ignore other requests
+    }
+  });
 });
 
 longPollingServer.listen(8083, () =>
@@ -116,17 +104,18 @@ longPollingServer.listen(8083, () =>
 
 // streaming server
 
-const lastStreamingMessages: Message[] = [];
+const streamingMessages: Message[] = [];
 const streamingClients = new Set() as Set<http.ServerResponse>;
 
 const streamingServer = http.createServer((req, res) => {
-  if (req.url === "/streaming") {
-    let timestamp = "";
-    req.on("data", (chunk) => {
-      timestamp += chunk; // convert Buffer to string
-    });
-    req.on("end", () => {
-      const messages = [...filterMessages(timestamp, lastLongPollingMessages)];
+  let body = "";
+  req.on("data", (chunk) => {
+    body += chunk; // convert Buffer to string
+  });
+  req.on("end", () => {
+    if (req.url === "/streaming") {
+      const timestamp = body;
+      const messages = [...filterMessages(timestamp, longPollingMessages)];
 
       res.setHeader("Content-Type", "application/json");
 
@@ -135,28 +124,21 @@ const streamingServer = http.createServer((req, res) => {
         res.write(JSON.stringify(messages));
       }
 
-      // register client
-      streamingClients.add(res);
-    });
-  } else if (req.url === "/streaming/send") {
-    let body = "";
-    req.on("data", (chunk) => {
-      body += chunk;
-    });
-    req.on("end", () => {
+      streamingClients.add(res); // register client
+    } else if (req.url === "/streaming/send") {
       const message: Message = JSON.parse(body);
       logMessage(message, "STREAMING");
-      lastStreamingMessages.push(message);
+      streamingMessages.push(message);
       res.end(); // send 200 OK
 
       // send message to all clients
       streamingClients.forEach((client) => {
         client.write(JSON.stringify([message]));
       });
-    });
-  } else {
-    res.end(); // ignore other requests
-  }
+    } else {
+      res.end(); // ignore other requests
+    }
+  });
 });
 
 streamingServer.listen(8084, () =>
