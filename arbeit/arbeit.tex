@@ -91,11 +91,11 @@
 }
 
 \begin{abstract}
-  Die Kommunikation zwischen Webbrowser und Server wird klassischerweise durch den Client (in der Regel ein Webbrowser) initiiert.
-  Dieser fragt den Inhalt einer Website an, und kann später weitere Inhalte laden oder Daten übermitteln.
-  Gemäß der HTTP-Spezifikation kann der Server Daten aber nur auf direkte Anfrage vom Client an diesen senden.
-  In diesem Artikel werden verschiedene Möglichkeiten zur fortlaufenden Kommunikation zwischen Client und Server vorgestellt und analysiert.
-  Dabei werden die Vor- und Nachteile der einzelnen Methoden aufgezeigt.
+  Bei Webseiten und Webapplikationen ist es häufig notwendig, dass der Server Daten an den Client (Webbrowser) sendet, ohne dass dieser eine Anfrage dafür gestellt hat.
+  Dies ist gemäß der HTTP-Spezifikation nicht vorgesehen, weshalb eine Reihe von alternativen Methoden entwickelt wurden, um diese Funktionalität zu ermöglichen.
+
+  In diesem Artikel die Methoden \emph{Polling}, \emph{Long-Polling}, \emph{Streaming} und \emph{WebSockets} vorgestellt und verglichen.
+  Dabei wird auf die Funktionsweise, die Implementierung und die Vor- und Nachteile eingegangen.
 \end{abstract}
 
 \keywords{web, http, WebSockets, polling, bidirectional communication, asynchronous communication}
@@ -109,14 +109,14 @@
 
 % Möglichkeiten für Client-Server Kommunikation nach Aufruf einer Website
 % Auseinandersetzung mit...
-% - Was sind und wie funktionieren Websockets (Spezifikation), Polling, Long Polling
-% - Realisierungen (insb. Serverside-Setup von Websockets, ggf. Polling-Algorithmen) 
-% - Vergleich von manuell implementierten Websockets, Polling (Auch mit Blick auf Performance, TCP packets)
-% - Vergleich/Analyse von existierenden Websocket-Frameworks
+% - Was sind und wie funktionieren Websockets (Spezifikation), Polling, Long Polling ✔️
+% - Realisierungen (insb. Serverside-Setup von Websockets, ggf. Polling-Algorithmen)  ✔️
+% - Vergleich von manuell implementierten Websockets, Polling (Auch mit Blick auf Performance, TCP packets) ✔️
 
-% - statistiken (verbreitung, wie wirds eingesetzt)
+% - Vergleich/Analyse von existierenden Websocket-Frameworks
+% - statistiken (verbreitung, wie wirds eingesetzt) ✔️
 % - umsetzung von ws durch aktuelle frameworks, was machen die, welche frameworks gibt es
-% - spezifikation von ws
+% - spezifikation von ws ✔️
 
 \section{Einleitung}
 
@@ -124,21 +124,25 @@ Moderne Webapplikationen sind in der Regel auf eine bidirektionale Kommunikation
 um zum Beispiel Benachrichtigungen oder Echtzeitdaten anzuzeigen.
 Webseiten basieren in der Regel auf dem HTTP-Protokoll, nach welchem alle Anfragen vom Client initiiert werden müssen.
 Um also eine asynchrone Kommunikation zwischen Client und Server zu ermöglichen, muss entschieden werden, wie mit dieser Einschränkung umgegangen werden soll.
-Dieser Artikel beschäftigt sich mit verschiedenen Ansätzen zur asynchronen Kommunikation zwischen Client und Server.
 
-% hier fehlt:
+Diese Arbeit beschäftigt sich mit verschiedenen Ansätzen zur asynchronen Kommunikation zwischen Client und Server.
+Sie soll dabei helfen, die Vor- und Nachteile der einzelnen Methoden zu verstehen und eine Entscheidungshilfe für die Wahl der geeigneten Methode liefern.
+
+Dabei wird auf klassisches Polling, die Polling-Varianten \emph{Long Polling} und \emph{Streaming}, sowie auf die bidirektionale Kommunikation mittels \emph{WebSockets} eingegangen.
+Es wird jeweils die Funktionsweise der Methoden erläutert, eine Beispielimplementierung vorgestellt und die Vor- und Nachteile der einzelnen Methoden aufgezeigt.
+Dabei werden Performance und Implementierungsaufwand berücksichtigt.
+
+Zunächst wird die theoretische Funktionsweise der einzelnen Methoden erläutert.
+Es wird dafür auf die Spezifikationen der einzelnen Methoden sowie exemplarische Nachrichtensequenzen zurückgegriffen.
+Anschließend wird mit jeder Methode eine Chatanwendung implementiert, um die Funktionsweise zu demonstrieren.
+Anhand der Implementierung wird die Implementierungsaufwand und die Performance der einzelnen Methoden verglichen.
+Abschließend werden die Vor- und Nachteile der einzelnen Methoden aufgezeigt.
+Zudem werden gängige Frameworks kurz vorgestellt und mit den implementierten Methoden verglichen.
+Zuletzt werden die Ergebnisse zusammengefasst und eine Empfehlung für die Wahl der geeigneten Methode gegeben.
+
 % - grund für die arbeit
 % - was wird behandelt, was nicht
 % - wie ist die methodik, was wird gemacht, was nicht
-
-% Gilt es, eine Website mit bidirektionaler bzw. asynchroner Kommunikation zu realisieren,
-% so muss eine Auswahl zwischen verschiedenen Ansätzen gewählt werden,
-% Ein solcher Fall kann eine Chatanwendung sein, in welcher der Server von einem Client erhaltene Nachrichten an andere Clients weitersendet.
-% Ein weiteres Beispiel wäre eine rechenintensive Anwendung,
-% in der eine Berechnung nach einiger Zeit erfolgt und der Server das Ergebnis an den Client melden soll.
-% Da der Server unter HTTP nicht ohne weiteres eine Nachricht an einen Client senden kann, muss dieser die Nachricht anfordern --
-% diese simple Art des Nachrichtenempfangs nennt man \emph{Polling}, also die wiederholte Abfrage nach neuen Nachrichten.
-% Neben diesem Ansatz gibt es \emph{WebSockets}, welche eine TCP/UDP-ähnliche Kommunikation im Web ermöglichen.
 
 \section{Vorstellung der Kommunikationsvarianten}
 
@@ -158,28 +162,22 @@ Abhängig von der Implementierung gilt das Intervall entweder ab dem Zeitpunkt d
 Gibt es Nachrichten, die der Server bereitstellen möchte, beantwortet dieser die Anfrage mit den neuen Inhalten --
 andernfalls wird der Antwortkörper leer sein.
 
-\begin{figure}[H]
+\begin{figure}
   \centering
   \includegraphics[width=.45\textwidth]{assets/msc/polling.png}
-  \caption[Nachrichtenempfang bei Polling-Kommunikation]{Beispiel von Nachrichtenempfang bei einer klassischen Polling-Kommunikation.
+  \caption[Nachrichtenempfang bei Polling-Kommunikation]{Beispiel von Nachrichtenempfang bei klassischem Polling.
     Der Client sendet regelmäßig eine Anfrage an den Server, welche entweder mit leerer Antwort oder mit neuen Inhalten beantwortet wird.
     Die Länge der Zeitspanne $\Delta t$ zwischen zwei Polling-Anfragen ist implementierungsabhängig.}
   \label{fig:polling}
 \end{figure}
 
-\begin{figure}[H]
+\begin{figure}
   \centering
   \includegraphics[width=.45\textwidth]{assets/msc/polling-send.png}
-  \caption[Nachrichtenversand bei Polling-Kommunikation]{Beispiel von Nachrichtenversand bei einer klassischen Polling-Kommunikation.
-    Der Client sendet eine Nachricht an den Server, welche daraufhin mittels polling abgerufen werden kann.}
+  \caption[Nachrichtenversand bei Polling-Kommunikation]{Beispiel von Nachrichtenversand bei klassischem Polling.
+    Der Client sendet eine Nachricht an den Server, welche daraufhin mittels Polling abgerufen werden kann.}
   \label{fig:polling_send}
 \end{figure}
-
-Das Hauptproblem mit Polling ist der entstehende Header Overhead, der für den gesamten Zeitraum in den regelmäßigen Abfragen besteht.
-Dadurch entsteht eine Netzwerkbelastung, welche keine tatsächlichen Informationen übermittelt.
-In der in späteren Abschnitten vorgestellten Chatanwendung handelt es sich so zum Beispiel um 156 Bytes, die sekündlich vom Server übermittelt werden,
-aber lediglich ein leeres JSON-Array enthalten.
-
 
 \subsubsection{Spezifikation}
 \label{sec:polling-spec}
@@ -196,7 +194,7 @@ Eine solche Optimierung setzt allerdings voraus, dass der Server in der Lage ist
 Eine Optimierung des Polling-Konzepts ist das sog. \emph{Long Polling}.
 Dabei wird die Antwort auf eine HTTP-Anfrage zurückgehalten, bis der Server eine Nachricht versenden will \cite{noauthor_long_2021}.
 
-\begin{figure}[H]
+\begin{figure}
   \centering
   \includegraphics[width=.45\textwidth]{assets/msc/long-polling.png}
   \caption[Nachrichtenempfang bei Long Polling]{Beispiel von Nachrichtenempfang bei Long Polling.
@@ -205,19 +203,15 @@ Dabei wird die Antwort auf eine HTTP-Anfrage zurückgehalten, bis der Server ein
   \label{fig:long_polling}
 \end{figure}
 
-Probleme von Long Polling sind unter anderem der (im Vergleich zu klassischem Polling reduzierter, aber weiterhin präsenter)
-Header Overhead, mögliche Timeouts und Ressourcen, die in Vorbereitung auf eine eingehende Nachricht vom Betriebssystem
-zu Verfügung gestellt werden. \cite[Abs. 2.2]{saint-andre_known_2011}.
-
 \subsection{Streaming}
 
-Eine weitere Optimierung des Polling-Konzepts ist das sog. \emph{Streaming},
-welches die HTTP Transferkodierung Chunking (vgl. \cite[Abs. 7.1]{fielding_http_2022}) verwendet,
+Eine weitere Optimierung des Polling-Konzepts ist das sog. \emph{Streaming}, manchmal auch \emph{Comet} oder \emph{Server Push} genannt.
+Es verwendet die HTTP Transferkodierung Chunking (vgl. \cite[Abs. 7.1]{fielding_http_2022}),
 also dem Aufspalten der Antwort in mehrere Packets, in welchen dann einzelne Nachrichten versendet werden.
 So kann die Anzahl an Anfragen ausgehend vom Client an den Server auf eine reduziert werden --
 der Server terminiert nie die Antwort auf die erste Anfrage \cite[Abs. 3]{saint-andre_known_2011}.
 
-\begin{figure}[H]
+\begin{figure}
   \centering
   \includegraphics[width=.45\textwidth]{assets/msc/streaming.png}
   \caption[Nachrichtenempfang bei Streaming]{Beispiel von Nachrichtenempfang bei Streaming.
@@ -227,35 +221,21 @@ der Server terminiert nie die Antwort auf die erste Anfrage \cite[Abs. 3]{saint-
   \label{fig:streaming}
 \end{figure}
 
-Mit Streaming werden einige Nachteile von Polling beglichen, andere -- insb. mögliche Timeouts und unnötig reservierte Ressourcen -- bleiben bestehen.
-Zusätzlich besteht das Risiko, dass diese Form von Kommunikation nicht auf allen Systemen funktioniert --
-Proxys können Pakete bündeln und erst verzögert weiterleiten, wodurch Pakete ggf. nicht zeitgetreu, gebündelt oder aufgespalten ankommen \cite[Abs. 3.2]{saint-andre_known_2011}.
-
 \subsection{WebSockets}
 
 WebSockets sind ein vom IETF\footnote{Internet Engineering Task Force.} entwickeltes Protokoll,
 welches 2011 als Standard veröffentlicht wurde \cite{melnikov_websocket_2011}.
 Grund für dessen Entstehung ist unter anderem die Erkenntnis, dass der Versuch, HTTP zu verwenden,
 um bidirektionale Kommunikation zu ermöglichen, vermeidbare Komplexität und Ineffizienz mit sich bringt \cite[S. 137f]{lubbers_pro_2010}.
-Es ist anzumerken, dass die vorgestellten Polling-Varianten das HTTP-Protokoll effektiv missbrauchen,
-um serverseitige Kommunikation zu ermöglichen:
 
-\begin{itemize}
-  \item Polling beinhaltet das Versenden von redundanten Anfragen, welche ohne Inhalt beantwortet werden,
-  \item Long Polling simuliert eine Verbindung mit (sehr) hoher Latenz um eine Antwort herauszuzögern und
-  \item Streaming verwendet HTTP Chunking, um innerhalb einer Response alleinstehende Nachrichten zu senden.
-\end{itemize}
+Es handelt sich bei WebSockets um ein vollwertiges Protokoll, welches auf TCP aufbaut.
+Es versucht, die Probleme von Polling, Long Polling und Streaming direkt zu adressieren (vgl. \cite[Abs. 1.1]{melnikov_websocket_2011}),
+indem es eine TCP-nahe Verbdingung zwischen Client und Server aufbaut und unterstützt.
 
-Die Auswirkungen dieses Missbrauchs werden auch aus der Implementierung deutlich (vgl. \autoref{sec:analysis-of-implementations}).
-
-Diesen Missbrauch haben WebSockets nicht -- es handelt sich hierbei um ein komplett neues Protokoll,
-welches diese Problemstellung direkt adressiert (vgl. \cite[Abs. 1.1]{melnikov_websocket_2011}),
-indem es eine TCP-Verbindung zwischen Client und Server aufbaut und unterstützt.
 Genauer baut WebSockets einen Tunnel zwischen TCP und IP auf, sodass darauffolgend TCP-Kommunikation systemübergreifend erfolgen kann (vgl. \cite[Abs. 1.5]{melnikov_websocket_2011}).
 HTTP wird dann lediglich für die initialen Handshakes verwendet -- danach nicht mehr.
 
-
-\begin{figure}[H]
+\begin{figure}
   \centering
   \includegraphics[width=.45\textwidth]{assets/msc/websockets.png}
   \caption[Nachrichtenaustausch bei WebSockets]{Beispiel von Nachrichtenaustausch bei WebSockets.
@@ -280,7 +260,6 @@ Für die Datenübermittlung sieht das WebSocket Protokoll eine auch in anderen P
 also dem Versenden von Daten in Form von Frames, welche jeweils einen Header und eine Payload enthalten.
 Header enthalten u. A. den Opcode\footnote{Opcodes (\emph{Operation Codes}, dt. \emph{Befehlscode}) können bei WebSockets Frames mit Text- oder Binärdaten ankündigen, eine vorherige Frame fortsetzen, die Verbindung schließen, oder einen Ping/Pong markieren.} und die Payload-Länge (vgl. \cite[Abs. 5.2]{melnikov_websocket_2011}).
 
-
 \section{Beispielhafte Implementierungen}
 
 Um die Unterschiede zwischen den Kommunikationsvarianten ersichtlich zu machen, werden diese für eine Chat-Applikation implementiert.
@@ -292,8 +271,8 @@ Implementierungen in anderen Frontend-Frameworks erfolgen analog.
 Es wird nicht auf die Darstellung der Nachrichten oder des Chats eingegangen, da dies nicht relevant für die Implementierung ist.
 Entsprechende Codeabschnitte sind daher ausgelassen.
 
-Die vollständige Implementierung der Frontendkomponenten ist im Repository im Verzeichnis \cite[\\\texttt{code/client/src/components/}]{wagner_seminar2022_2022} zu finden.
-Der gesamte Code für alle Serverkomponenten befindet sich in \cite[\\\texttt{code/server/chatserver.ts}]{wagner_seminar2022_2022}.
+Die vollständige Implementierung der Frontendkomponenten ist im Repository im Verzeichnis \\\cite[\texttt{code/client/src/components/}]{wagner_seminar2022_2022} zu finden.
+Der gesamte Code für alle Serverkomponenten befindet sich in \cite[\texttt{code/server/chatserver.ts}]{wagner_seminar2022_2022}.
 
 \subsection{Implementierung von Polling}
 
@@ -318,12 +297,14 @@ Zudem verwaltet er ein Array mit allen Nachrichten, die bisher gesendet wurden.
 
 Bei einer Anfrage an \texttt{/polling} wird mit einem Zeitstempel gearbeitet,
 sodass der Server nur die Nachrichten zurückgibt, die nach diesem Zeitstempel eingegangen sind.
+Da die Abfragen nach Nachrichten in der Regel öfter als die Nachrichten selbst gesendet werden,
+wird das Array der Nachrichten oft leer sein.
 
-\lstinputlisting[caption={Polling Server: Nachrichtenabfrage}, label={lst:polling-server-polling}, firstlineandnumber=37, lastline=42]{../code/server/chatserver.ts}
+\lstinputlisting[caption={Polling Server: Nachrichtenabfrage}, label={lst:polling-server-polling}, firstlineandnumber=37, lastline=40]{../code/server/chatserver.ts}
 
 Im Falle einer Anfrage an \texttt{/polling/send} wird die Nachricht in das Array eingefügt und der Client mit dem Statuscode 200 \emph{OK} bestätigt.
 
-\lstinputlisting[caption={Polling Server: Nachrichtenempfang}, label={lst:polling-server-send-message}, firstlineandnumber=43, lastline=47]{../code/server/chatserver.ts}
+\lstinputlisting[caption={Polling Server: Nachrichtenempfang}, label={lst:polling-server-send-message}, firstlineandnumber=41, lastline=45]{../code/server/chatserver.ts}
 
 \subsubsection{Polling Client}
 
@@ -370,8 +351,9 @@ Daher wird der Versuch, Nachrichten an gespeicherte Verbindungen zu versenden, i
 
 Der Client ändert sich ebenfalls nur minimal.
 Das Versenden von Nachrichten bleibt unverändert, siehe \autoref{lst:polling-client-send-messages}.
+Die Nachrichtenabfrage startet nun allerdings nicht mehr durch ein Intervall, sondern durch einen Selbstaufruf in der Funktion \texttt{fetchMessages}.
 
-\lstinputlisting[caption={Long Polling Client: Nachrichtenabfrage}, label={lst:long-polling-client-get-messages}, firstlineandnumber=25, lastline=41]{../code/client/src/components/LongPollingChat.vue}
+\lstinputlisting[caption={Long Polling Client: Nachrichtenabfrage}, label={lst:long-polling-client-get-messages}, firstlineandnumber=33, lastline=40]{../code/client/src/components/LongPollingChat.vue}
 
 \subsection{Implementierung von Streaming}
 
@@ -392,18 +374,21 @@ Geht eine neue Nachricht ein, wird diese an alle gespeicherten Verbindungen gese
 
 Der Client ändert sich nur minimal.
 Das Versenden von Nachrichten bleibt unverändert, siehe \autoref{lst:polling-client-send-messages}.
+Die Nachrichtenabfrage läuft nun über einen \texttt{Reader}, welcher die eingehenden Nachrichten Blockweise liest.
 
-\lstinputlisting[caption={Streaming Client: Nachrichtenabfrage}, label={lst:streaming-client-get-messages}, firstlineandnumber=23, lastline=49]{../code/client/src/components/StreamingChat.vue}
+\lstinputlisting[caption={Streaming Client: Nachrichtenabfrage}, label={lst:streaming-client-get-messages}, firstlineandnumber=36, lastline=48]{../code/client/src/components/StreamingChat.vue}
 
 \subsection{Implementierung von WebSockets}
+\label{sec:websocket-implementation}
 
 Da WebSockets eine vollwertige bidirektionale Kommunikation zwischen Client und Server ermöglichen, ist die Implementierung sehr einfach.
 
 \subsubsection{WebSocket Server}
 
 Der Server wird durch die Bibliothek \texttt{ws} unterstützt.
-Diese stellt eine Klasse \texttt{WebSocket.Server} bereit, welche die Verwaltung von offenen Verbindungen übernimmt.
+Diese stellt eine Klasse \\\texttt{WebSocket.Server} bereit, welche die Verwaltung von offenen Verbindungen übernimmt.
 In dieser Implementierung erhält auch der Client, welcher die Nachricht versendet, eine Kopie der Nachricht.
+Es wird weiterhin der gleiche Typ \emph{Message} verwendet.
 
 \lstinputlisting[caption={WebSocket Server}, label={lst:websocket-server}, firstlineandnumber=150, lastline=163]{../code/server/chatserver.ts}
 
@@ -413,6 +398,7 @@ Der Client erzeugt eine \\\texttt{WebSocket} Instanz, welche die Verbindung zum 
 Die Nachrichten werden über dessen Methode \texttt{send} versendet.
 Im Falle einer neuen Nachricht wird die Callback-Funktion \texttt{onmessage} aufgerufen.
 
+\pagebreak
 \lstinputlisting[caption={WebSocket Client}, label={lst:websocket-client}, firstlineandnumber=12, lastline=30]{../code/client/src/components/WebSocketChat.vue}
 
 \section{Vergleiche zwischen Kommunikationsvarianten}
@@ -420,10 +406,11 @@ Im Falle einer neuen Nachricht wird die Callback-Funktion \texttt{onmessage} auf
 \subsection{Analyse der Implementierungen}
 \label{sec:analysis-of-implementations}
 
-Vergleichen wir zunächst die Implementierungen in Bezug auf Codezeilen.
+Vergleichen wir zunächst die Implementierungen der Kommunikationsvarianten in Bezug auf Codezeilen.
 Dabei wird für den Client jeweils nur der Code innerhalb des \texttt{<script>} Tags betrachtet.
 Kommentar- und Leerzeilen werden nicht mitgezählt.
 Es ist zudem anzumerken, dass die Zeilenanzahl nicht ausschlaggebend für die Performance ist und lediglich einen groben Überblick über den Implementierungsaufwand geben soll.
+Auch ist die Anzahl der Codezeilen stark abhängig von Programmiersprache, Formatierungen, verwendete Bibliotheken und wie viel der Implementierung in andere Funktionen ausgelagert wurde.
 
 \begin{table}[h]
   \centering
@@ -463,7 +450,7 @@ Es folgt die Berechnung der dort angegebenen Werte.
     Streaming                  & 769 Bytes$^b$    & 0 Bytes             & $m$ Bytes                   & 714 + $m$ Bytes             \\
     WebSocket                  & 722 Bytes        & 0 Bytes             & 26 + $m$ Bytes              & 26 + $m$ Bytes              \\ \hline
   \end{tabular}\newline
-  \footnotesize{$^a$ 769 Bytes gemäß \autoref{sec:message-request-size}, plus 2 für ein leeres Array als Payload.
+  \footnotesize{$^a$ 769 Bytes gemäß \autoref{sec:message-request-size}, plus 2 für ein leeres Array als Response-Payload.
     \\$^b$ Tatsächlich nur der Request-Teil einer Nachrichtenanfrage. Der Response-Teil wird bei der ersten eingehenden Nachricht gesendet.}
 \end{table*}
 
@@ -510,6 +497,7 @@ Die Response-Payload ist ebenfalls leer, sodass die Gesamtgröße des Response-T
 Der Aufbau einer Websocket-Verbindung hat somit eine Gesamtgröße von 722 Bytes.
 
 \subsubsection{Größe einer Websocket-Nachricht}
+\label{sec:websocket-message-size}
 Nachrichten, die über eine Websocket-Verbindung übertragen werden, haben keinen HTTP-Overhead.
 Die Größe einer Nachricht ist daher rein die Größe der \emph{Message} $m$ plus dem WebSocket-Overhead.
 Dieser gibt den Typ der WebSocket-Nachricht an und hat einen Overhead von 26 Bytes im Falle des Typs \texttt{message}.
@@ -517,71 +505,175 @@ Dies gilt sowohl für gesendete als auch empfangene Nachrichten.
 
 Eine WebSocket-Nachricht hat somit eine Gesamtgröße von 26 + $m$ Bytes.
 
-\subsubsection{Schlussfolgerungen}
+\subsection{Schlussfolgerungen}
 
 Anhand der \autoref{tab:data-traffic-comparison} ist ersichtlich, dass die Menge an Datenverkehr abhängig von der Implementierung in unterschiedlichen Abschnitten der Kommunikation variiert.
-Es ist anzumerken, dass die Größe der Nachrichten großen Einfluss auf die Größe des Datenverkehrs darstellt.
-Polling ist die einzige Variante, bei der ein regelmäßiger Datenverkehr entsteht.
-Wie oft die Anfragen versendet werden, ist abhängig von der Implementierung bzw. dem gewählten Polling-Intervall $\Delta t$.
+Es ist anzumerken, dass die Größe der Nachrichten großen Einfluss auf die Größe des Datenverkehrs darstellt, und die Nachrichtengröße bei allen Implementierungen gleich ist.
 
-Es lässt sich argumentieren, dass die klassische Polling-Variante attraktiver als Long Polling und Streaming ist, wenn über einen kleinen Zeitraum viele Nachrichten übertragen werden sollen, da hier dann weniger Datenverkehr entsteht.
-Bei einer längeren Zeit, in der keine Nachrichten übertragen werden, ist die klassische Polling-Variante jedoch weniger attraktiv, da hier redundanter Datenverkehr entsteht.
-Auch könnte dieser Vorteil bei Long Polling und Streaming genutzt werden, indem die Anfragen nur alle $\Delta t$ Sekunden beantwortet werden.
+Es wird nun auf die Vor- und Nachteile der Kommunikationsvarianten eingegangen.
+Dabei werden Spezifikation, Implementierung und Analysen der Performance berücksichtigt.
 
-Für eine Echtzeitkommunikation kommen alle Kommunikationsvarianten bis auf Polling infrage, da in allen anderen Fällen die Nachrichten sofort übertragen werden.
-Kommen viele Nachrichten schnell aufeinander, kann es passieren, dass Long Polling mehrere Nachrichten in einem Request versendet, da es immer auf eine neue Anfrage warten muss.
-In diesem Fall wäre Streaming die bessere Wahl, da hier die Nachrichten sofort übertragen werden können.
+\subsubsection{Polling}
 
-Generell ist Streaming Long Polling vorzuziehen, da es den Overhead für Nachrichtenempfang reduziert, indem es Redundanzen vermeidet.
+\begin{itemize}
+  \item \textbf{Vorteile}
+        \begin{itemize}
+          \item Einfach zu implementieren: Es sind keine zusätzlichen Bibliotheken notwendig.
+                Zudem hat klassisches Polling den geringsten Implementierungsaufwand unter den Polling-Varianten (siehe \autoref{tab:code-lines}).
+          \item Vollständige Akzeptanz bei Browsern: Polling basiert auf HTTP, welches von allen Browsern unterstützt wird.
+          \item Geringere Netzwerkbelastung im Falle von hohen Mengen an Nachrichten: Da bei Polling nur eine Anfrage pro Intervall $\Delta t$ versendet wird,
+                entsteht eine geringere Netzwerkbelastung bzw. Header-Overhead als bei anderen Polling-Varianten,
+                wenn sehr viele Nachrichten in kleinem Zeitraum empfangen werden\footnote{Dieser Vorteil wäre auch bei den folgenden Implementierungen gegeben,
+                  wenn die Nachrichten in einem Intervall $\Delta t$ versendet werden, weshalb eine hohe Nachrichtenlast nicht zwingend ein Argument für klassisches Polling darstellt.}.
+        \end{itemize}
+  \item \textbf{Nachteile}
+        \begin{itemize}
+          \item Hohe Netzwerkbelastung: Da bei Polling regelmäßig Anfragen versendet werden, entsteht eine durchgehende Netzwerkbelastung, welche u. U. keine tatsächlichen Informationen übermittelt (Redundanz).
+                Allein durch eine hohe Anzahl an verbundenen Clients kann die Netzwerkbelastung sehr hoch sein. So würden 1.000 Nutzer, die sekündlich Nachrichten anfragen, allein durch die Header etwa 6 Mbps an Netzwerkdurchsatz verursachen \cite{lubbers_html5_nodate}.
+          \item Hoher Header-Overhead für Nachrichtenempfang: Da bei Polling regelmäßig Anfragen versendet werden, entsteht ein hoher Header-Overhead, welcher für den gesamten Zeitraum der Kommunikation in den regelmäßigen Abfragen besteht.
+          \item Hohe Server- und Client-Last: Da bei Polling regelmäßig Anfragen versendet und beantwortet werden müssen, entsteht eine hohe Last auf Server- und Clientseite.
+          \item Keine Echtzeitübertragung: Es kann bis zu $\Delta t$ dauern, bis eine Nachricht empfangen wird. Dies kann z. B. bei einer Chatanwendung zu einer unangenehmen Verzögerung führen.
+        \end{itemize}
+\end{itemize}
 
-WebSockets sind bei weitem die an Overhead geringste Variante, da hier keine HTTP-Requests und -Responses benötigt werden.
-Da hier eine TCP-Verbindung aufgebaut wird, ist die Nachrichtenübertragung wesentlich effizienter.
+\subsubsection{Long Polling}
+
+\begin{itemize}
+  \item \textbf{Vorteile}
+        \begin{itemize}
+          \item Reduzierter Header-Overhead: Da bei Long Polling nur eine Anfrage pro eingehende Nachricht versendet wird, entsteht ein geringerer Header-Overhead als bei Polling.
+          \item Geringere Server- und Client-Last: Da bei Long Polling nur eine Anfrage versendet wird, entsteht eine geringere Last auf Server- und Clientseite als bei Polling.
+          \item Vollständige Akzeptanz bei Browsern: Long Polling basiert auf HTTP, welches von allen Browsern unterstützt wird.
+        \end{itemize}
+  \item \textbf{Nachteile}
+        \begin{itemize}
+          \item Timeouts: Da bei Long Polling eine Anfrage beliebig lang offen bleiben kann, kann es zu Timeouts kommen, also einem Abbruch der Verbindung.
+          \item Unnötig reservierte Ressourcen: Betriebssysteme reservieren oft in Antizipation auf eingehende Nachrichten Systemressourcen.
+                Diese Ressourcen werden bei Long Polling unnötig lange reserviert. \cite[Abs. 2.2]{saint-andre_known_2011}
+          \item Verlangsamung bei mehreren Nachrichten in kurzer Zeit: Werden zwei Nachrichten in kurzer Zeit nacheinander versendet, kann die zweite Nachricht erst empfangen werden, nachdem die erste beim Client eingegangen ist und dieser eine neue Anfrage versendet hat.
+                Dies kann zu einer Verzögerung führen.
+        \end{itemize}
+\end{itemize}
+
+\subsubsection{Streaming}
+
+\begin{itemize}
+  \item \textbf{Vorteile}
+        \begin{itemize}
+          \item Weiter reduzierter Header-Overhead: Streaming benötigt nur eine Anfrage für alle eingehenden Nachrichten, wodurch der Header-Overhead noch weiter reduziert wird.
+          \item Geringere Server- und Client-Last: Ähnlich wie bei Long Polling entsteht eine geringere Last auf Server- und Clientseite als bei Polling.
+          \item Vollständige Akzeptanz bei Browsern: Streaming basiert auf HTTP, welches von allen Browsern unterstützt wird.
+          \item Keine Verzögerung bei mehreren Nachrichten in kurzer Zeit: Da bei Streaming die Nachrichten sofort übertragen werden können, entsteht keine Verzögerung bei mehreren Nachrichten in kurzer Zeit.
+        \end{itemize}
+  \item \textbf{Nachteile}
+        \begin{itemize}
+          \item Timeouts: Da bei Streaming eine Anfrage permanent offen gehalten wird, kann es zu Timeouts kommen.
+          \item Unnötig reservierte Ressourcen: Bei Streaming werden für die permanent offene Anfrage Systemressourcen reserviert, selbst wenn sie nicht akut benötigt werden. \cite[Abs. 2.2]{saint-andre_known_2011}
+          \item Möglicherweise nicht unterstützt: Streaming funktioniert nicht auf allen Systemen --
+                Proxys können Pakete bündeln und erst verzögert weiterleiten, wodurch Pakete ggf. nicht zeitgetreu, gebündelt oder aufgespalten ankommen \cite[Abs. 3.2]{saint-andre_known_2011}.
+                Im schlimmsten Fall übermittelt die Proxy die Anfrage erst, wenn sie abgeschlossen ist, was bei Streaming nie der Fall ist.
+        \end{itemize}
+\end{itemize}
+
+\subsubsection{WebSockets}
+\label{sec:comparison-websockets}
+
+\begin{itemize}
+  \item \textbf{Vorteile}
+        \begin{itemize}
+          \item Kein Header-Overhead: WebSocket-Nachrichten verwenden keine HTTP-Header.
+                Nachrichten werden allerdings durch das WebSocket-Protokoll verpackt und dadurch etwas größer (vgl. \autoref{sec:websocket-message-size}).
+          \item Wesentlich geringere Server- und Client-Last: Da bei WebSockets Kommunikation beinahe auf TCP-Ebene stattfindet \cite[Abs. 1.5]{melnikov_websocket_2011}, entsteht eine geringere Last als bei Polling-Varianten (vgl. \autoref{tab:data-traffic-comparison}).
+          \item Echtzeitübertragung: Nachrichten können in beide Richtungen sofort übertragen werden.
+          \item Vollständige Akzeptanz bei Browsern: WebSockets werden von allen Browsern unterstützt.
+          \item Geringste Latenz: WebSockets haben im Vergleich zu Polling-Varianten die geringste Latenz \cite[Seite 52]{pimentel_communicating_2012}.
+          \item Kein Missbrauch von HTTP: Anders als Polling-Varianten\footnote{Polling beinhaltet das Versenden von redundanten Anfragen;
+                  Long Polling simuliert eine Verbindung mit (sehr) hoher Latenz um eine Antwort herauszuzögern;
+                  Streaming verwendet HTTP Chunking, um eine Response für mehrere Nachrichten zu verwenden.} verwendet WebSockets das WebSocket-Protokoll,
+                welches für die bidirektionale Übertragung von Nachrichten entwickelt wurde.
+        \end{itemize}
+  \item \textbf{Nachteile}
+        \begin{itemize}
+          \item Keine vollständige Akzeptanz bei Browsern: WebSockets sind ein relativ neues Feature und werden von älteren Browsern nicht unterstützt.
+                Laut \emph{Can I Use...} werden WebSockets von den meisten Browsern in Versionen ab etwa 2012 unterstützt.
+                Nutzer mit WebSocket-fähigen Browsern werden auf etwa $98.3\%$ geschätzt \cite{deveria_web_nodate}.
+        \end{itemize}
+\end{itemize}
 
 \subsection{Auswahl einer Kommunikationsvariante für die Chatanwendung}
 
 Für den Anwendungsfall der Chatanwendung ist die Wahl der Kommunikationsvariante abhängig von der Anzahl und Art der Nutzer sowie der Anzahl der Nachrichten, die übertragen werden sollen.
-WebSockets sind ein relativ neues Feature und werden von älteren Browsern nicht unterstützt.
-Bei den meisten Browsern wurden WebSockets in Versionen von etwa 2012 implementiert \cite{deveria_web_nodate}.
-Soll die Chatanwendung auf möglichst vielen Browsern laufen, ist es sinnvoll, eine Kommunikationsvariante zu wählen, die auch von älteren Browsern unterstützt wird.
-Dabei ist anzumerken, dass der geschätzte Anteil der Nutzer, die einen Browser mit WebSocket-Fähigkeit verwenden, auf etwa $98.3\%$ geschätzt wird \cite{deveria_web_nodate}.
-So bildet der Anteil an Nutzern, die keine WebSocket-Verbindungen aufbauen können, eine eventuell vernachlässigbare Minderheit.
 
-Die Wahl für die Chatanwendung fällt eindeutig auf WebSockets, da diese die geringste Latenz aufweisen \cite{pimentel_communicating_2012} und die Nachrichten mit minimalem Overhead übertragen werden können.
+Soll die Chatanwendung auf möglichst vielen Browsern laufen, ist es sinnvoll, eine Kommunikationsvariante zu wählen, die auch von älteren Browsern unterstützt wird.
+Gemäß \autoref{sec:comparison-websockets} ist dies nur bei WebSockets eventuell nicht der Fall.
+Jedoch bildet der Anteil an Nutzern, die keine WebSocket-Verbindungen aufbauen können, eine eventuell vernachlässigbare Minderheit.
+
+Die Wahl für die Chatanwendung fällt eindeutig auf WebSockets, da diese die geringste Latenz aufweisen und die Nachrichten mit minimalem Overhead übertragen werden können.
 Auch ist davon auszugehen, dass die meisten Nutzer der Chatanwendung einen Browser mit WebSocket-Fähigkeit verwenden werden.
 
 \subsubsection{Auswahl mit Priorität auf Verfügbarkeit}
 
-Muss die Chatanwendung auf fast allen Browsern laufen, darf WebSockets nicht verwendet werden.
+Muss die Chatanwendung auf allen Browsern laufen, dürfen WebSockets (allein, siehe \autoref{sec:frameworks} für mögliche Alternativen) nicht verwendet werden.
 Nun muss entschieden werden, welche der anderen Kommunikationsvarianten sinnvoll ist.
 
 Werden sehr viele Nachrichten von vielen Nutzern gleichzeitig versendet, kommen Streaming oder Polling infrage:
 Streaming, da hier die Nachrichten mit minimalem Overhead sofort übertragen werden können; und
 Polling, da Mengen von Nachrichten in regelmäßigen Abständen übertragen werden können.
-Hierbei ist anzumerken, dass Polling eine hohe Netzwerkbelastung verursachen kann, wenn viele Nutzer die Nachrichten gleichzeitig abfragen.
-So würden 1.000 Nutzer, die sekündlich Nachrichten anfragen, allein durch die Header etwa 6 Mbps an Netzwerkdurchsatz verursachen \cite{lubbers_html5_nodate}.
 
-Dann kann je nach Priorität – Effizienz bei großen Mengen von Nachrichten oder Echtzeit – entschieden werden, welche Variante verwendet werden soll.
+Dann kann je nach Priorität -- Effizienz bei großen Mengen von Nachrichten oder Echtzeit -- entschieden werden, welche Variante verwendet werden soll.
 Werden in der Regel nur wenige Nachrichten versendet, ist Streaming die beste Wahl, da es den geringsten Overhead mit Echtzeitübermittlung hat.
 
-
 \section{Vorstellung von Frameworks}
+\label{sec:frameworks}
 
 Es gibt Frameworks, die das Implementieren von asynchroner Kommunikation erleichtern.
+Sie präsentieren sich aufgrund ihrer Funktionalität und ihrer Implementierung als geeignete Alternativen zu den oben vorgestellten Kommunikationsvarianten.
 
 \subsection{Socket.IO}
 
-Was ist das? Wie ist es besser oder schlechter für die Implementierung als Chat-App? Performance?
-Auch: Attraktiv für Verfügbarkeit, da es auf allen Browsern läuft. Weicht auf Polling aus, wenn WebSockets nicht unterstützt werden.
+\emph{Socket.IO} ist ein Framework, welches in vielen Programmiersprachen implementiert -- sowohl Server- als auch Clientseitig -- implementiert wurde.
+Es ist baut auf WebSockets auf und erweitert diese um Fallbacks für Browser, die WebSockets nicht unterstützen.
+Dabei greift es auf Long Polling zurück, wenn WebSockets nicht unterstützt werden oder nicht funktionieren.
+Auch baut es durch Fehler unterbrochene Verbindungen automatisch wieder auf \cite{noauthor_introduction_nodate}.
+Zusätzlich zu den Fallbacks bietet es auch einige neuen Features, wie zum Beispiel \emph{Rooms}, die es ermöglichen, Nachrichten an Gruppen von Clients zu senden \cite{noauthor_rooms_nodate}.
+
+Die Perfomance ist im Vergleich zu WebSockets schlechter, da es mehr Overhead hat.
+Bei 10000 verbundenen Clients benötigt eine wie in \autoref{sec:websocket-implementation} vorgestellte Implementierung 40MB Heap-Speicher,
+während \emph{Socket.IO} abhängig von der verwendeten Package 80 bis 170MB benötigt \cite{noauthor_memory_nodate}.
 
 \subsection{Faye}
 
+\emph{Faye} ist ein Framework, das Konzept von Publish-Subscribe gemäß dem Bayeux-Protokoll implementiert \cite{noauthor_faye_nodate}.
+Server und Client wurden für \emph{Node.js} und \emph{Ruby} implementiert.
+Ähnlich wie Rooms bei \emph{Socket.IO} können Clients bei \emph{Faye} Kanäle abonnieren und Nachrichten an diese Kanäle senden.
+Ebenfalls wie bei \emph{Socket.IO} stellt \emph{Faye} eine Reihe von Fallbacks zur Verfügung, um die Kompatibilität mit Browsern zu erhöhen, die WebSockets nicht unterstützen \cite{noauthor_faye_nodate}.
+
+Im Vergleich zu \emph{Socket.IO} ist \emph{Faye} wesentlich unbekannter \cite{noauthor_comparing_nodate}\footnote{Widersprüchlich zu dieser Aussage erscheinen die Downloads von \emph{Faye} als wesentlich höher als die von \emph{Socket.IO}. 
+Die Ursache hierfür ist unklar -- auf GitHub hat \emph{Socket.IO} etwa zwei Größenordnungen mehr Sterne und Forks als \emph{Faye}.}, sonst haben die beiden Frameworks ähnliche Eigenschaften.
+
 \section{Fazit}
 
+Die verschiedenen Kommunikationsvarianten haben unterschiedliche Vor- und Nachteile, weshalb sie in verschiedenen Kontexten sinnvoller erscheinen können als andere.
+So wurde ermittelt, dass WebSockets in der Performance am besten abschneiden, jedoch nicht von allen Browsern unterstützt werden.
+Auch haben die verschiedenen Polling-Varianten Aspekte, weshalb sie in bestimmten Situationen sinnvoller sind als andere.
+So hat zwar Streaming weniger Overhead als Long Polling, bringt aber das Risiko mit sich, aufgrund Proxys nicht richtig zu funktionieren.
+
+Es ist zusätzlich zu diskutieren, ob die Verwendung von Frameworks für eine Anwendung möglicherweise sinnvoller ist. 
+Diese sind zwar in der Regel nicht so performant wie eine selbst implementierte Lösung, 
+können jedoch die Implementierung erheblich erleichtern und bieten zusätzliche Features.
+
+Die Analysen der verschiedenen Varianten waren aufgrund der begrenzten Zeit nicht vollständig,
+weshalb es sich lohnt, diese weiter zu untersuchen.
+Interessant wäre es auch, die verschiedenen Varianten in einem größeren Kontext zu untersuchen, um die Vor- und Nachteile besser einschätzen zu können.
+
+Zudem gibt es noch einige weitere Varianten, die nicht in dieser Arbeit betrachtet wurden.
+Für zukünftige Arbeiten in diesem Feld wäre es erwägenswert, einen größeren Vergleich zwischen verfügbaren Varianten zu erstellen,
+in welchem auch Latenz und TCP-Overhead analysiert werden.
 
 \bibliographystyle{literature/bibtex/IEEEtran}
 \bibliography{literature/literature}
 
-\listoffigures
-\listoftables
+% \listoffigures
+% \listoftables
 
 \end{document}}
