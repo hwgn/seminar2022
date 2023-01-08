@@ -92,13 +92,13 @@
 
 \begin{abstract}
   Bei Webseiten und Webapplikationen ist es häufig notwendig, dass der Server Daten an den Client (Webbrowser) sendet, ohne dass dieser eine Anfrage dafür gestellt hat.
-  Dies ist gemäß der HTTP-Spezifikation nicht vorgesehen, weshalb eine Reihe von alternativen Methoden entwickelt wurden, um diese Funktionalität zu ermöglichen.
+  Dies ist gemäß der HTTP-Spezifikation nicht vorgesehen, weshalb eine Reihe von alternativen Methoden entwickelt wurde, um diese Funktionalität zu ermöglichen.
 
-  In diesem Artikel die Methoden \emph{Polling}, \emph{Long-Polling}, \emph{Streaming} und \emph{WebSockets} vorgestellt und verglichen.
+  In diesem Artikel werden die Methoden \emph{Polling}, \emph{Long-Polling}, \emph{Streaming} und \emph{WebSockets} vorgestellt und verglichen.
   Dabei wird auf die Funktionsweise, die Implementierung und die Vor- und Nachteile eingegangen.
 \end{abstract}
 
-\keywords{web, http, WebSockets, polling, bidirectional communication, asynchronous communication}
+% \keywords{web, http, WebSockets, polling, bidirectional communication, asynchronous communication}
 
 \maketitle
 \lhead{\small Möglichkeiten zur asynchronen Kommunikation zwischen Webbrowser und Server}
@@ -126,19 +126,19 @@ Webseiten basieren in der Regel auf dem HTTP-Protokoll, nach welchem alle Anfrag
 Um also eine asynchrone Kommunikation zwischen Client und Server zu ermöglichen, muss entschieden werden, wie mit dieser Einschränkung umgegangen werden soll.
 
 Diese Arbeit beschäftigt sich mit verschiedenen Ansätzen zur asynchronen Kommunikation zwischen Client und Server.
-Sie soll dabei helfen, die Vor- und Nachteile der einzelnen Methoden zu verstehen und eine Entscheidungshilfe für die Wahl der geeigneten Methode liefern.
+Sie soll dabei helfen, die Vor- und Nachteile der einzelnen Methoden zu verstehen und eine Entscheidungshilfe für die Wahl der geeigneten Methode für eine bestimmte Anwendung zu liefern.
 
-Dabei wird auf klassisches Polling, die Polling-Varianten \emph{Long Polling} und \emph{Streaming}, sowie auf die bidirektionale Kommunikation mittels \emph{WebSockets} eingegangen.
-Es wird jeweils die Funktionsweise der Methoden erläutert, eine Beispielimplementierung vorgestellt und die Vor- und Nachteile der einzelnen Methoden aufgezeigt.
-Dabei werden Performance und Implementierungsaufwand berücksichtigt.
+Dabei wird auf klassisches \emph{Polling}, die Polling-Varianten \emph{Long Polling} und \emph{Streaming}, 
+sowie auf die bidirektionale Kommunikation mittels \emph{WebSockets} eingegangen.
 
 Zunächst wird die theoretische Funktionsweise der einzelnen Methoden erläutert.
-Es wird dafür auf die Spezifikationen der einzelnen Methoden sowie exemplarische Nachrichtensequenzen zurückgegriffen.
-Anschließend wird mit jeder Methode eine Chatanwendung implementiert, um die Funktionsweise zu demonstrieren.
-Anhand der Implementierung wird die Implementierungsaufwand und die Performance der einzelnen Methoden verglichen.
-Abschließend werden die Vor- und Nachteile der einzelnen Methoden aufgezeigt.
+Es wird dafür auf die eventuell vorhandene Spezifikationen der einzelnen Methoden sowie auf Darstellungen von exemplarischen Nachrichtensequenzen zurückgegriffen.
+Anschließend wird mit jeder Methode eine Chatanwendung implementiert und vorgestellt.
+Anhand dessen wird der Implementierungsaufwand und die Performance in Hinsicht auf übertragenen Datenmengen der einzelnen Methoden verglichen.
+Abschließend werden auf Basis der gesammelten Informationen die Vor- und Nachteile der einzelnen Methoden aufgezeigt.
+Ausgehend von den Ergebnissen wird eine Empfehlung für die Wahl der geeigneten Methode gegeben, um eine Chatanwendung zu implementieren.
 Zudem werden gängige Frameworks kurz vorgestellt und mit den implementierten Methoden verglichen.
-Zuletzt werden die Ergebnisse zusammengefasst und eine Empfehlung für die Wahl der geeigneten Methode gegeben.
+Zuletzt werden die Ergebnisse zusammengefasst und die Arbeit wird kurz in ihrer Vorgehensweise diskutiert.
 
 % - grund für die arbeit
 % - was wird behandelt, was nicht
@@ -230,7 +230,7 @@ um bidirektionale Kommunikation zu ermöglichen, vermeidbare Komplexität und In
 
 Es handelt sich bei WebSockets um ein vollwertiges Protokoll, welches auf TCP aufbaut.
 Es versucht, die Probleme von Polling, Long Polling und Streaming direkt zu adressieren (vgl. \cite[Abs. 1.1]{melnikov_websocket_2011}),
-indem es eine TCP-nahe Verbdingung zwischen Client und Server aufbaut und unterstützt.
+indem es eine TCP-nahe Verbindung zwischen Client und Server aufbaut und unterstützt.
 
 Genauer baut WebSockets einen Tunnel zwischen TCP und IP auf, sodass darauffolgend TCP-Kommunikation systemübergreifend erfolgen kann (vgl. \cite[Abs. 1.5]{melnikov_websocket_2011}).
 HTTP wird dann lediglich für die initialen Handshakes verwendet -- danach nicht mehr.
@@ -246,7 +246,7 @@ HTTP wird dann lediglich für die initialen Handshakes verwendet -- danach nicht
 
 \subsubsection{Spezifikation}
 \label{sec:websocket-spec}
-Um eine Verbindung über einen WebSocker aufzubauen, wird zunächst vom Client aus eine HTTP-Anfrage gesendet.
+Um eine Verbindung über einen WebSocket aufzubauen, wird zunächst vom Client aus eine HTTP-Anfrage gesendet.
 Gemäß der Spezifikation muss es sich hierbei um eine GET-Request an den Pfad, auf dem der WebSocket hinterlegt ist, handeln.
 
 Wäre die WebSocket URI \texttt{ws://example.org/chat}, so wäre die erste Zeile der HTTP-Anfrage \texttt{GET /chat HTTP/1.1} \cite[Abs. 4.1]{melnikov_websocket_2011}.
@@ -258,7 +258,8 @@ Zudem meldet er bei erfolgreichem Protokollwechsel die vom Client angegebene Int
 Wurde die Verbindung vom Server akzeptiert, können nun Client und Server direkt miteinander kommunizieren.
 Für die Datenübermittlung sieht das WebSocket Protokoll eine auch in anderen Protokollen ähnlich vertretenes Frame-System vor,
 also dem Versenden von Daten in Form von Frames, welche jeweils einen Header und eine Payload enthalten.
-Header enthalten u. A. den Opcode\footnote{Opcodes (\emph{Operation Codes}, dt. \emph{Befehlscode}) können bei WebSockets Frames mit Text- oder Binärdaten ankündigen, eine vorherige Frame fortsetzen, die Verbindung schließen, oder einen Ping/Pong markieren.} und die Payload-Länge (vgl. \cite[Abs. 5.2]{melnikov_websocket_2011}).
+Header enthalten u. A. den Opcode\footnote{Opcodes (\emph{Operation Codes}, dt. \emph{Befehlscode}) können bei WebSockets Frames mit Text- oder Binärdaten ankündigen, 
+eine vorherige Frame fortsetzen, die Verbindung schließen, oder einen Ping/Pong markieren.} und die Payload-Länge (vgl. \cite[Abs. 5.2]{melnikov_websocket_2011}).
 
 \section{Beispielhafte Implementierungen}
 
@@ -410,7 +411,7 @@ Vergleichen wir zunächst die Implementierungen der Kommunikationsvarianten in B
 Dabei wird für den Client jeweils nur der Code innerhalb des \texttt{<script>} Tags betrachtet.
 Kommentar- und Leerzeilen werden nicht mitgezählt.
 Es ist zudem anzumerken, dass die Zeilenanzahl nicht ausschlaggebend für die Performance ist und lediglich einen groben Überblick über den Implementierungsaufwand geben soll.
-Auch ist die Anzahl der Codezeilen stark abhängig von Programmiersprache, Formatierungen, verwendete Bibliotheken und wie viel der Implementierung in andere Funktionen ausgelagert wurde.
+Auch ist die Anzahl der Codezeilen stark abhängig von Programmiersprache, Formatierungen, verwendete Bibliotheken und Menge von ausgelagerten Funktionen.
 
 \begin{table}[h]
   \centering
@@ -426,7 +427,7 @@ Auch ist die Anzahl der Codezeilen stark abhängig von Programmiersprache, Forma
   \label{tab:code-lines}
 \end{table}
 
-Es ist zu erkennen, dass WebSockets wesentlich weniger Code benötigen, um das gleiche Ziel zu erreichen.
+Aus \autoref{tab:code-lines} ist zu erkennen, dass WebSockets wesentlich weniger Code benötigen, um das gleiche Ziel zu erreichen.
 Auch ist ersichtlich, dass die Implementierung von Polling im Vergleich zu Long Polling und Streaming einfacher ist.
 
 \subsection{Analyse der Performance}
@@ -487,9 +488,10 @@ Damit kommen wir auf eine Gesamtgröße von 714 + $m$ Bytes für eine Nachrichte
 
 
 \subsubsection{Größe eines Websocket-Verbindungsaufbaus}
-Für den Protokollwechsel versendet der Client eine HTTP-Anfrage vom Typ GET mit einem Request-Header, welcher den Wechsel zum WebSocket-Protokoll startet (vgl. hierzu \autoref{sec:websocket-spec}).
+Für den Protokollwechsel versendet der Client eine HTTP-Anfrage vom Typ GET mit einem Request-Header, 
+welcher den Wechsel zum WebSocket-Protokoll startet (vgl. hierzu Abs. \ref{sec:websocket-spec}).
 Auch hier gehen wir bei dem Request Header von einer durchschnittlichen Größe von 600 Bytes aus.
-Bei GET-Requests ist die Request-Payload leer, sodass die Gesamtgröße des Request-Teils 600 Bytes beträgt.
+Bei GET Requests ist die Request-Payload leer, sodass die Gesamtgröße des Request-Teils 600 Bytes beträgt.
 
 Die Response hat eine Größe von 122 Bytes – hier enthält der Response Header lediglich den Status-Code und die Ankündigung, dass der Protokollwechsel erfolgreich war.
 Die Response-Payload ist ebenfalls leer, sodass die Gesamtgröße des Response-Teils 122 Bytes beträgt.
@@ -613,7 +615,7 @@ Auch ist davon auszugehen, dass die meisten Nutzer der Chatanwendung einen Brows
 
 \subsubsection{Auswahl mit Priorität auf Verfügbarkeit}
 
-Muss die Chatanwendung auf allen Browsern laufen, dürfen WebSockets (allein, siehe \autoref{sec:frameworks} für mögliche Alternativen) nicht verwendet werden.
+Muss die Chatanwendung auf allen Browsern laufen, dürfen WebSockets nicht verwendet werden\footnote{Zumindest nicht allein. Siehe \autoref{sec:frameworks} für mögliche Alternativen, welche das Problem der Verfügbarkeit durch Fallbacks lösen.}.
 Nun muss entschieden werden, welche der anderen Kommunikationsvarianten sinnvoll ist.
 
 Werden sehr viele Nachrichten von vielen Nutzern gleichzeitig versendet, kommen Streaming oder Polling infrage:
@@ -631,11 +633,11 @@ Sie präsentieren sich aufgrund ihrer Funktionalität und ihrer Implementierung 
 
 \subsection{Socket.IO}
 
-\emph{Socket.IO} ist ein Framework, welches in vielen Programmiersprachen -- sowohl Server- als auch Clientseitig -- implementiert wurde.
+\emph{Socket.IO} ist ein Framework, welches in vielen Programmiersprachen und Frameworks -- sowohl Server- als auch Clientseitig -- implementiert wurde.
 Es baut auf WebSockets auf und erweitert diese um Fallbacks für Browser, die WebSockets nicht unterstützen.
 Dabei greift es auf Long Polling zurück, wenn WebSockets nicht unterstützt werden oder nicht funktionieren.
 Auch baut es durch Fehler unterbrochene Verbindungen automatisch wieder auf \cite{noauthor_introduction_nodate}.
-Zusätzlich zu den Fallbacks bietet es auch einige neuen Features, wie zum Beispiel \emph{Rooms}, die es ermöglichen, Nachrichten an Gruppen von Clients zu senden \cite{noauthor_rooms_nodate}.
+Zusätzlich zu den Fallbacks bietet es auch einige neue Features, wie zum Beispiel \emph{Rooms}, die es ermöglichen, Nachrichten an Gruppen von Clients zu senden \cite{noauthor_rooms_nodate}.
 
 Die Perfomance ist im Vergleich zu WebSockets schlechter, da es mehr Overhead hat.
 Bei 10000 verbundenen Clients benötigt eine wie in \autoref{sec:websocket-implementation} vorgestellte Implementierung 40MB Heap-Speicher,
@@ -643,13 +645,13 @@ während \emph{Socket.IO} abhängig von der verwendeten Package 80 bis 170MB ben
 
 \subsection{Faye}
 
-\emph{Faye} ist ein Framework, das Konzept von Publish-Subscribe gemäß dem Bayeux-Protokoll implementiert \cite{noauthor_faye_nodate}.
+\emph{Faye} ist ein Framework, das das Konzept von Publish-Subscribe gemäß dem Bayeux-Protokoll umsetzt \cite{noauthor_faye_nodate}.
 Server und Client wurden für \emph{Node.js} und \emph{Ruby} implementiert.
 Ähnlich wie Rooms bei \emph{Socket.IO} können Clients bei \emph{Faye} Kanäle abonnieren und Nachrichten an diese Kanäle senden.
 Ebenfalls wie bei \emph{Socket.IO} stellt \emph{Faye} eine Reihe von Fallbacks zur Verfügung, um die Kompatibilität mit Browsern zu erhöhen, die WebSockets nicht unterstützen \cite{noauthor_faye_nodate}.
 
-Im Vergleich zu \emph{Socket.IO} ist \emph{Faye} wesentlich unbekannter \cite{noauthor_comparing_nodate}\footnote{Widersprüchlich zu dieser Aussage erscheinen die Downloads von \emph{Faye} als wesentlich höher als die von \emph{Socket.IO}. 
-Die Ursache hierfür ist unklar -- auf GitHub hat \emph{Socket.IO} etwa zwei Größenordnungen mehr Sterne und Forks als \emph{Faye}.}, sonst haben die beiden Frameworks ähnliche Eigenschaften.
+Im Vergleich zu \emph{Socket.IO} ist \emph{Faye} wesentlich unbekannter \cite{noauthor_comparing_nodate}\footnote{Widersprüchlich zu dieser Aussage erscheinen die Downloads von \emph{Faye} als wesentlich höher als die von \emph{Socket.IO}.
+Die Ursache hierfür ist unklar -- auf \emph{GitHub} hat \emph{Socket.IO} etwa zwei Größenordnungen mehr Sterne und Forks als \emph{Faye}.}, und wird in weniger Programmiersprachen unterstützt. Sonst haben die beiden Frameworks ähnliche Eigenschaften.
 
 \section{Fazit}
 
@@ -663,7 +665,7 @@ Diese sind zwar in der Regel nicht so performant wie eine selbst implementierte 
 können jedoch die Implementierung erheblich erleichtern und bieten zusätzliche Features.
 
 Die Analysen der verschiedenen Varianten waren aufgrund der begrenzten Zeit nicht vollständig,
-weshalb es sich lohnt, diese weiter zu untersuchen.
+weshalb es sich lohnt, diese zu ergänzen und auszuarbeiten.
 Interessant wäre es auch, die verschiedenen Varianten in einem größeren Kontext zu untersuchen, um die Vor- und Nachteile besser einschätzen zu können.
 
 Zudem gibt es noch einige weitere Varianten, die nicht in dieser Arbeit betrachtet wurden.
@@ -673,7 +675,7 @@ in welchem auch Latenz und TCP-Overhead analysiert werden.
 \bibliographystyle{literature/bibtex/IEEEtran}
 \bibliography{literature/literature}
 
-% \listoffigures
-% \listoftables
+\listoffigures
+\listoftables
 
 \end{document}}
