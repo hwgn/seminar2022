@@ -510,7 +510,7 @@ Eine WebSocket-Nachricht hat somit eine Gesamtgröße von 26 + $m$ Bytes.
 \subsection{Schlussfolgerungen}
 
 Anhand der \autoref{tab:data-traffic-comparison} ist ersichtlich, dass die Menge an Datenverkehr abhängig von der Implementierung in unterschiedlichen Abschnitten der Kommunikation variiert.
-Es ist anzumerken, dass die Größe der Nachrichten großen Einfluss auf die Größe des Datenverkehrs darstellt, und die Nachrichtengröße bei allen Implementierungen gleich ist.
+Es ist anzumerken, dass die Größe der Nachrichten großen Einfluss auf die Größe des Datenverkehrs hat, und die Nachrichtengröße bei allen Implementierungen gleich ist.
 
 Es wird nun auf die Vor- und Nachteile der Kommunikationsvarianten eingegangen.
 Dabei werden Spezifikation, Implementierung und Analysen der Performance berücksichtigt.
@@ -619,8 +619,10 @@ Muss die Chatanwendung auf allen Browsern laufen, dürfen WebSockets nicht verwe
 Nun muss entschieden werden, welche der anderen Kommunikationsvarianten sinnvoll ist.
 
 Werden sehr viele Nachrichten von vielen Nutzern gleichzeitig versendet, kommen Streaming oder Polling infrage:
-Streaming, da hier die Nachrichten mit minimalem Overhead sofort übertragen werden können; und
-Polling, da Mengen von Nachrichten in regelmäßigen Abständen übertragen werden können.
+\begin{enumerate}
+  \item Streaming, da hier die Nachrichten mit minimalem Overhead sofort übertragen werden können;
+  \item Polling, da Mengen von Nachrichten in regelmäßigen Abständen übertragen werden können.
+\end{enumerate}
 
 Dann kann je nach Priorität -- Effizienz bei großen Mengen von Nachrichten oder Echtzeit -- entschieden werden, welche Variante verwendet werden soll.
 Werden in der Regel nur wenige Nachrichten versendet, ist Streaming die beste Wahl, da es den geringsten Overhead mit Echtzeitübermittlung hat.
