@@ -7,6 +7,10 @@ Die Ausarbeitung befindet sich im Ordner `arbeit` und ist als PDF (`arbeit/arbei
 
 Das im Voraus entstandene Exposé befindet sich im Ordner `expose` und ist ebenfalls als PDF (`expose/expose.pdf`) verfügbar.
 
+## Präsentationsfolien
+
+Ein PDF-Export der Präsentationsfolien befindet sich im Ordner `slides` und ist als PDF (`slides/slides.pdf`) verfügbar.
+
 ## Code
 
 Der Code für das Hauptseminar befindet sich im Ordner `code`.
@@ -18,10 +22,9 @@ Wichtige Ordner sind:
 ### Navigation im Client-Code
 
 Der Client ist in mehrere Komponenten aufgeteilt, die in `src/components/` zu finden sind.
-Die Komponente `ChatPage.vue` ist die Hauptkomponente, die die Chat-Komponenten zur Auswahl anzeigt.
-Die Komponenten `PollingChat.vue`, `WebsocketChat.vue` etc. enthalten jeweils die implementierung der verschiedenen Chat-Techniken.
+Die Komponente `ChatPage.vue` ist die Hauptkomponente, die die Chat-Komponenten zur Auswahl anzeigt und die Darstellung des Chats übernimmt.
+Die Komponenten `PollingChat.vue`, `WebsocketChat.vue` etc. enthalten jeweils die Implementierung der verschiedenen Chat-Techniken.
 Dabei wird von der Implementierungskomponente jeweils eine Funktion `sendMessage` der Hauptkomponente offengelegt, an welche diese Nachrichten (inkl. Nutzernamen) weiterreicht.
-Die Darstellung der Nachrichten übernimmt die Implementierungskomponente selbst.
 
 ### Lokale Ausführung
 
