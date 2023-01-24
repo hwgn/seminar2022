@@ -39,4 +39,4 @@ Die Weboberfläche ist dann unter `http://localhost:8080` erreichbar.
 
 ---
 
-Zuletzt aktualisiert am 2024-01-24.
+Zuletzt aktualisiert am 2023-01-24.
