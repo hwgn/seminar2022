@@ -1,6 +1,12 @@
 # Hauptseminar: Möglichkeiten zur asynchronen Kommunikation zwischen Webbrowser und Server
 Hendrik Wagner, 2023
 
+## Ausarbeitung und Exposé
+
+Die Ausarbeitung befindet sich im Ordner `arbeit` und ist als PDF (`arbeit/arbeit.pdf`) verfügbar.
+
+Das im Voraus entstandene Exposé befindet sich im Ordner `expose` und ist ebenfalls als PDF (`expose/expose.pdf`) verfügbar.
+
 ## Code
 
 Der Code für das Hauptseminar befindet sich im Ordner `code`.
@@ -17,7 +23,7 @@ Die Komponenten `PollingChat.vue`, `WebsocketChat.vue` etc. enthalten jeweils di
 Dabei wird von der Implementierungskomponente jeweils eine Funktion `sendMessage` der Hauptkomponente offengelegt, an welche diese Nachrichten (inkl. Nutzernamen) weiterreicht.
 Die Darstellung der Nachrichten übernimmt die Implementierungskomponente selbst.
 
-## Lokale Ausführung
+### Lokale Ausführung
 
 Es müssen sowohl der Client als auch der Server ausgeführt werden.
 
@@ -27,3 +33,7 @@ Es müssen sowohl der Client als auch der Server ausgeführt werden.
 Die Weboberfläche ist dann unter `http://localhost:8080` erreichbar.
 
 > Beachten Sie, dass z. B. Chrome die Kommunikation zwischen Client und Server aufgrund von CORS blockiert. Um dies zu umgehen, müssen Sie Chrome mit dem Parameter `--disable-web-security` starten.
+
+---
+
+Zuletzt aktualisiert am 2024-01-24.

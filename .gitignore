@@ -1,1 +1,5 @@
 node_modules
+
+# converted ts files in the code/server folder
+
+code/server/**/*.js
